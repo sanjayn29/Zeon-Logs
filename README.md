@@ -45,7 +45,6 @@ The application will be available at `http://localhost:8080`
 - **Tailwind CSS** - Styling
 - **React Router** - Routing
 - **TanStack Query** - Data fetching
-- **Supabase** - Backend services
 
 ## Project Structure
 

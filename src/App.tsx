@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
+import HomePage from "./pages/HomePage";
 import UploadPage from "./pages/UploadPage";
 import NormalizationPage from "./pages/NormalizationPage";
 import DashboardPage from "./pages/DashboardPage";
@@ -20,7 +21,8 @@ const App = () => (
       <BrowserRouter>
         <AppLayout>
           <Routes>
-            <Route path="/" element={<UploadPage />} />
+            <Route path="/" element={<HomePage />} />
+            <Route path="/upload" element={<UploadPage />} />
             <Route path="/normalization" element={<NormalizationPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/chat" element={<ChatPage />} />

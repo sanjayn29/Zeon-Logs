@@ -12,10 +12,11 @@ import {
   SidebarMenuItem,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Upload, BarChart3, GitCompare, MessageCircle, Zap } from "lucide-react";
+import { Upload, BarChart3, GitCompare, MessageCircle, Zap, Home } from "lucide-react";
 
 const navItems = [
-  { title: "Upload Logs", url: "/", icon: Upload },
+  { title: "Home", url: "/", icon: Home },
+  { title: "Upload Logs", url: "/upload", icon: Upload },
   { title: "Normalization", url: "/normalization", icon: GitCompare },
   { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
   { title: "Ask ChargeSense", url: "/chat", icon: MessageCircle },

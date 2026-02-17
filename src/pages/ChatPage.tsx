@@ -9,21 +9,9 @@ interface Message {
   text: string;
 }
 
-const presetReplies: Record<string, string> = {
-  "which connector fails the most": "Based on the analyzed logs, **CHAdeMO-01** has the highest failure rate at 28%, primarily caused by Connector Timeout errors (14 occurrences). Recommend scheduling maintenance inspection.",
-  "what is the average charging session duration": "The average charging session duration across all connectors is approximately **47 minutes**, with CCS2 connectors averaging 42 min and Type 2 connectors averaging 55 min.",
-  "what are the peak charging hours": "Peak charging activity is observed between **8:00 AM - 10:00 AM** and **5:00 PM - 7:00 PM**, aligning with typical commuter patterns. Friday sees the highest overall volume.",
-};
-
-const suggestions = [
-  "Which connector fails the most",
-  "What is the average charging session duration",
-  "What are the peak charging hours",
-];
-
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([
-    { id: 0, role: "bot", text: "Hi! I'm **ChargeSense AI**. Ask me anything about your EV charger logs — connector health, error patterns, usage trends, and more." },
+    { id: 0, role: "bot", text: "Hi! I'm **ChargeSense AI**. I'll help you analyze your EV charger logs once you upload them. I can answer questions about connector health, error patterns, usage trends, and more." },
   ]);
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -39,8 +27,7 @@ export default function ChatPage() {
     setInput("");
 
     setTimeout(() => {
-      const key = text.trim().toLowerCase();
-      const reply = presetReplies[key] || "That's a great question! In a production environment, I'd analyze your uploaded log data to provide detailed insights. Try asking about connector failures, session durations, or peak hours.";
+      const reply = "I'm ready to help analyze your charger logs! Please upload your log files first, and then I'll be able to provide detailed insights about connector performance, error patterns, charging trends, and more.";
       setMessages((prev) => [...prev, { id: Date.now() + 1, role: "bot", text: reply }]);
     }, 800);
   };
@@ -92,21 +79,6 @@ export default function ChatPage() {
         </AnimatePresence>
         <div ref={bottomRef} />
       </div>
-
-      {/* Suggestion chips */}
-      {messages.length <= 1 && (
-        <div className="flex flex-wrap gap-2 mb-3">
-          {suggestions.map((s) => (
-            <button
-              key={s}
-              onClick={() => sendMessage(s)}
-              className="text-xs px-3 py-1.5 rounded-full border border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors"
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* Input */}
       <div className="flex gap-2 pt-2 border-t border-border">

@@ -4,13 +4,6 @@ import { Zap, Upload, BarChart3, MessageCircle, GitCompare, Battery, Plug, Trend
 import { Button } from "@/components/ui/button";
 import heroBg from "@/assets/hero-bg.jpg";
 
-const quickStats = [
-  { label: "Logs Processed", value: "12.4K", icon: <Zap className="w-5 h-5" />, color: "text-primary" },
-  { label: "Connectors Tracked", value: "86", icon: <Plug className="w-5 h-5" />, color: "text-accent" },
-  { label: "Avg Uptime", value: "97.3%", icon: <TrendingUp className="w-5 h-5" />, color: "text-chart-info" },
-  { label: "Alerts Resolved", value: "342", icon: <Shield className="w-5 h-5" />, color: "text-chart-warning" },
-];
-
 const features = [
   {
     icon: <Upload className="w-6 h-6" />,
@@ -37,21 +30,6 @@ const features = [
     route: "/chat",
   },
 ];
-
-const recentActivity = [
-  { time: "2 min ago", event: "CCS2-01 session completed", status: "success" },
-  { time: "15 min ago", event: "CHAdeMO-02 timeout error", status: "error" },
-  { time: "32 min ago", event: "TYPE2-03 session completed", status: "success" },
-  { time: "1 hr ago", event: "CCS2-02 overcurrent alert", status: "warning" },
-  { time: "1.5 hr ago", event: "Batch log upload (148 entries)", status: "info" },
-];
-
-const statusColors: Record<string, string> = {
-  success: "bg-accent",
-  error: "bg-destructive",
-  warning: "bg-chart-warning",
-  info: "bg-chart-info",
-};
 
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } };
 const fadeUp = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } };
@@ -94,22 +72,19 @@ export default function HomePage() {
       </motion.div>
 
       {/* Quick Stats */}
-      <motion.div variants={stagger} initial="hidden" animate="show" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {quickStats.map((s) => (
-          <motion.div
-            key={s.label}
-            variants={fadeUp}
-            className="glow-card rounded-xl bg-card p-5 flex items-center gap-4"
-          >
-            <div className={`w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center ${s.color}`}>
-              {s.icon}
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{s.value}</p>
-              <p className="text-xs text-muted-foreground">{s.label}</p>
-            </div>
-          </motion.div>
-        ))}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glow-card rounded-xl bg-card p-8 text-center"
+      >
+        <Zap className="w-12 h-12 text-primary/40 mx-auto mb-3" />
+        <h3 className="text-lg font-semibold text-foreground mb-2">No Data Yet</h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          Upload your charger logs to see statistics and insights
+        </p>
+        <Button onClick={() => navigate("/upload")} size="sm" variant="outline">
+          Upload Logs
+        </Button>
       </motion.div>
 
       {/* Feature Cards + Activity Feed */}
@@ -143,24 +118,10 @@ export default function HomePage() {
             <Clock className="w-4 h-4 text-primary" />
             <h3 className="text-sm font-semibold text-foreground">Recent Activity</h3>
           </div>
-          <div className="divide-y divide-border/50">
-            {recentActivity.map((a, i) => (
-              <div key={i} className="px-5 py-3 flex items-start gap-3 hover:bg-muted/30 transition-colors">
-                <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${statusColors[a.status]}`} />
-                <div className="min-w-0">
-                  <p className="text-sm text-foreground truncate">{a.event}</p>
-                  <p className="text-xs text-muted-foreground">{a.time}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="px-5 py-3 border-t border-border">
-            <button
-              onClick={() => navigate("/dashboard")}
-              className="text-xs text-primary font-medium hover:underline"
-            >
-              View full dashboard →
-            </button>
+          <div className="p-8 text-center">
+            <Clock className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">No recent activity</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">Upload logs to see activity</p>
           </div>
         </motion.div>
       </div>
@@ -170,34 +131,13 @@ export default function HomePage() {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
-        className="glow-card rounded-xl bg-card p-5"
+        className="glow-card rounded-xl bg-card p-8 text-center"
       >
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Battery className="w-4 h-4 text-primary" /> Connector Health Overview
-          </h3>
-          <span className="text-xs text-muted-foreground">5 active connectors</span>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {[
-            { name: "CCS2-01", health: 89 },
-            { name: "CCS2-02", health: 94 },
-            { name: "CHAdeMO-01", health: 72 },
-            { name: "TYPE2-01", health: 97 },
-            { name: "TYPE2-02", health: 91 },
-          ].map((c) => (
-            <div key={c.name} className="text-center p-3 rounded-lg bg-muted/40">
-              <p className="text-xs font-medium text-muted-foreground mb-2">{c.name}</p>
-              <div className="w-full bg-muted rounded-full h-2 mb-1">
-                <div
-                  className={`h-2 rounded-full transition-all ${c.health >= 90 ? "bg-accent" : c.health >= 80 ? "bg-chart-warning" : "bg-destructive"}`}
-                  style={{ width: `${c.health}%` }}
-                />
-              </div>
-              <p className="text-lg font-bold text-foreground">{c.health}%</p>
-            </div>
-          ))}
-        </div>
+        <Battery className="w-12 h-12 text-primary/40 mx-auto mb-3" />
+        <h3 className="text-lg font-semibold text-foreground mb-2">Connector Health Overview</h3>
+        <p className="text-sm text-muted-foreground">
+          No connector data available. Upload and analyze logs to monitor connector health.
+        </p>
       </motion.div>
     </div>
   );

@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Upload, BarChart3, GitCompare, MessageCircle, Zap, Home, LogOut } from "lucide-react";
+import { Upload, BarChart3, GitCompare, MessageCircle, Zap, Home, LogOut, Download } from "lucide-react";
 
 const navItems = [
   { title: "Home", url: "/", icon: Home },
@@ -75,6 +75,25 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Documentation Download Section */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-sidebar-foreground/40 text-[10px] uppercase tracking-widest px-5">
+            Resources
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <div className="px-2">
+              <a
+                href="/OCPP_Log_Understanding.pdf"
+                download="OCPP_Log_Understanding.pdf"
+                className="flex items-center gap-3 px-5 py-2.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent rounded-lg transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                <span>OCPP Guide</span>
+              </a>
+            </div>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>

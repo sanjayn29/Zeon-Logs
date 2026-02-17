@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Sidebar,
   SidebarContent,
@@ -12,7 +13,9 @@ import {
   SidebarMenuItem,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Upload, BarChart3, GitCompare, MessageCircle, Zap, Home } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Upload, BarChart3, GitCompare, MessageCircle, Zap, Home, LogOut } from "lucide-react";
 
 const navItems = [
   { title: "Home", url: "/", icon: Home },
@@ -23,6 +26,20 @@ const navItems = [
 ];
 
 export function AppSidebar() {
+  const { user, signOut } = useAuth();
+
+  const getUserInitials = () => {
+    if (user?.displayName) {
+      return user.displayName
+        .split(' ')
+        .map(n => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2);
+    }
+    return user?.email?.[0].toUpperCase() || 'U';
+  };
+
   return (
     <Sidebar className="w-60 border-r border-sidebar-border">
       <div className="p-5 flex items-center gap-2.5">
@@ -62,9 +79,35 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <div className="mt-auto p-4 mx-3 mb-3 rounded-lg energy-gradient border border-border/50">
-        <p className="text-[11px] text-sidebar-foreground/60">Hackathon Project</p>
-        <p className="text-xs text-sidebar-foreground/80 font-medium">Smart EV Insights</p>
+      {/* User Profile Section */}
+      <div className="mt-auto border-t border-sidebar-border">
+        <div className="p-4 space-y-3">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-10 w-10">
+              <AvatarImage src={user?.photoURL || undefined} alt={user?.displayName || user?.email || 'User'} />
+              <AvatarFallback className="bg-primary/10 text-primary">
+                {getUserInitials()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-sidebar-foreground truncate">
+                {user?.displayName || 'User'}
+              </p>
+              <p className="text-xs text-sidebar-foreground/60 truncate">
+                {user?.email}
+              </p>
+            </div>
+          </div>
+          <Button
+            onClick={signOut}
+            variant="destructive"
+            size="sm"
+            className="w-full text-xs bg-destructive/90 hover:bg-destructive text-destructive-foreground"
+          >
+            <LogOut className="w-3 h-3 mr-2" />
+            Sign Out
+          </Button>
+        </div>
       </div>
     </Sidebar>
   );

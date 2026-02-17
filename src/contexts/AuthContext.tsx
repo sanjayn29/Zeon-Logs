@@ -66,12 +66,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: `Signed in as ${user.displayName || user.email}`,
       });
     } catch (error: any) {
-      console.error('Error signing in with Google:', error);
-      toast({
-        title: "Sign In Failed",
-        description: error.message || "An error occurred during sign in",
-        variant: "destructive",
-      });
+      // Handle popup blocked or cancelled
+      if (error?.code === "auth/popup-blocked") {
+        toast({
+          title: "Popup Blocked",
+          description: "Please allow popups for this site and try again",
+          variant: "destructive",
+        });
+      } else if (error?.code === "auth/cancelled-popup-request") {
+        // User closed the popup - silently ignore
+        return;
+      } else {
+        console.error('Error signing in with Google:', error);
+        toast({
+          title: "Sign In Failed",
+          description: error.message || "An error occurred during sign in",
+          variant: "destructive",
+        });
+      }
     }
   };
 

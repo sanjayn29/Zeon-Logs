@@ -3,22 +3,27 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Upload, FileText, CheckCircle, AlertCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
-const ACCEPTED = [".csv", ".xlsx", ".xls", ".json"];
+const ACCEPTED = [".csv", ".xlsx", ".xls"];
+const BACKEND_API = "http://localhost:8000";
 
 interface UploadedFile {
   name: string;
   size: string;
   type: string;
   status: "uploading" | "done" | "error";
+  errorMessage?: string;
 }
 
 export default function UploadPage() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [dragging, setDragging] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
-  const processFile = useCallback((file: File) => {
+  const processFile = useCallback(async (file: File) => {
     const ext = "." + file.name.split(".").pop()?.toLowerCase();
     const valid = ACCEPTED.includes(ext);
     const entry: UploadedFile = {
@@ -26,17 +31,42 @@ export default function UploadPage() {
       size: (file.size / 1024).toFixed(1) + " KB",
       type: ext.replace(".", "").toUpperCase(),
       status: valid ? "uploading" : "error",
+      errorMessage: valid ? undefined : "Unsupported file format"
     };
     setFiles((prev) => [...prev, entry]);
 
-    if (valid) {
-      setTimeout(() => {
+    if (valid && user?.email) {
+      try {
+        // Upload to backend
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("user_email", user.email);
+        formData.append("data_source", "cms");
+
+        const response = await fetch(`${BACKEND_API}/process-file`, {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error("Upload failed");
+        }
+
+        // Mark as done
         setFiles((prev) =>
           prev.map((f) => (f.name === file.name ? { ...f, status: "done" } : f))
         );
-      }, 1200);
+      } catch (error) {
+        setFiles((prev) =>
+          prev.map((f) => 
+            f.name === file.name 
+              ? { ...f, status: "error", errorMessage: "Processing failed" } 
+              : f
+          )
+        );
+      }
     }
-  }, []);
+  }, [user]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -65,7 +95,7 @@ export default function UploadPage() {
       <div>
         <h2 className="text-2xl font-bold text-foreground">Upload Charger Logs</h2>
         <p className="text-muted-foreground text-sm mt-1">
-          Drop your EV charger log files to begin analysis. Supports CSV, Excel, and JSON.
+          Drop your EV charger log files to begin analysis. Supports CSV and Excel formats.
         </p>
       </div>
 
@@ -97,7 +127,7 @@ export default function UploadPage() {
           </div>
           <div>
             <p className="font-semibold text-foreground">Drag & drop files here</p>
-            <p className="text-sm text-muted-foreground mt-1">or click to browse · CSV, XLSX, JSON</p>
+            <p className="text-sm text-muted-foreground mt-1">or click to browse · CSV, XLSX</p>
           </div>
         </div>
       </motion.div>
@@ -142,11 +172,11 @@ export default function UploadPage() {
       {doneCount > 0 && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <Button
-            onClick={() => navigate("/normalization")}
+            onClick={() => navigate("/dashboard")}
             className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
             size="lg"
           >
-            Normalize & Analyze ({doneCount} file{doneCount > 1 ? "s" : ""})
+            View Analysis ({doneCount} file{doneCount > 1 ? "s" : ""} processed)
           </Button>
         </motion.div>
       )}

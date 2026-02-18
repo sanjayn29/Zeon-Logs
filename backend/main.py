@@ -343,7 +343,9 @@ def build_sessions_enhanced(df):
         return pd.DataFrame(), {
             "Total Sessions": 0,
             "Successful Sessions": 0,
+            "Successful Session Errors": {},
             "Failed Sessions": 0,
+            "Failed Session Reasons": {},
             "Incomplete Sessions": 0,
             "Total Energy (kWh)": 0,
             "Total Duration (hours)": 0,
@@ -468,10 +470,38 @@ def build_sessions_enhanced(df):
     
     # Calculate aggregate metrics
     if not sessions_df.empty:
+        # Count successful sessions by error reason
+        successful_sessions = sessions_df[sessions_df['result'] == "Successful"]
+        successful_error_summary = {}
+        
+        for idx, row in successful_sessions.iterrows():
+            error_text = row.get('errors', 'Unknown')
+            if error_text and error_text != "None":
+                # Split multiple errors if comma-separated
+                error_list = [e.strip() for e in str(error_text).split(',')]
+                for error in error_list:
+                    if error and error != "None":
+                        successful_error_summary[error] = successful_error_summary.get(error, 0) + 1
+        
+        # Count failed sessions by error reason
+        failed_sessions = sessions_df[sessions_df['result'] == "Failed"]
+        failed_error_summary = {}
+        
+        for idx, row in failed_sessions.iterrows():
+            error_text = row.get('errors', 'Unknown')
+            if error_text and error_text != "None":
+                # Split multiple errors if comma-separated
+                error_list = [e.strip() for e in str(error_text).split(',')]
+                for error in error_list:
+                    if error and error != "None":
+                        failed_error_summary[error] = failed_error_summary.get(error, 0) + 1
+        
         metrics = {
             "Total Sessions": len(sessions_df),
             "Successful Sessions": int((sessions_df['result'] == "Successful").sum()),
+            "Successful Session Errors": successful_error_summary,
             "Failed Sessions": int((sessions_df['result'] == "Failed").sum()),
+            "Failed Session Reasons": failed_error_summary,
             "Incomplete Sessions": int((sessions_df['result'] == "Incomplete").sum()),
             "Interrupted Sessions": int((sessions_df['result'] == "Interrupted").sum()),
             "Total Energy (kWh)": round(sessions_df['energy_kwh'].sum(), 2),
@@ -485,7 +515,9 @@ def build_sessions_enhanced(df):
         metrics = {
             "Total Sessions": 0,
             "Successful Sessions": 0,
+            "Successful Session Errors": {},
             "Failed Sessions": 0,
+            "Failed Session Reasons": {},
             "Incomplete Sessions": 0,
             "Total Energy (kWh)": 0,
             "Total Duration (hours)": 0,
@@ -539,14 +571,44 @@ def generate_summary(sessions_df):
         return {
             "Total Sessions": 0,
             "Successful Sessions": 0,
+            "Successful Session Errors": {},
             "Failed Sessions": 0,
+            "Failed Session Reasons": {},
             "Incomplete Sessions": 0,
         }
+    
+    # Count successful sessions by error reason
+    successful_sessions = sessions_df[sessions_df['result'] == "Successful"]
+    successful_error_summary = {}
+    
+    for idx, row in successful_sessions.iterrows():
+        error_text = row.get('errors', 'Unknown')
+        if error_text and error_text != "None":
+            # Split multiple errors if comma-separated
+            error_list = [e.strip() for e in str(error_text).split(',')]
+            for error in error_list:
+                if error and error != "None":
+                    successful_error_summary[error] = successful_error_summary.get(error, 0) + 1
+    
+    # Count failed sessions by error reason
+    failed_sessions = sessions_df[sessions_df['result'] == "Failed"]
+    failed_error_summary = {}
+    
+    for idx, row in failed_sessions.iterrows():
+        error_text = row.get('errors', 'Unknown')
+        if error_text and error_text != "None":
+            # Split multiple errors if comma-separated
+            error_list = [e.strip() for e in str(error_text).split(',')]
+            for error in error_list:
+                if error and error != "None":
+                    failed_error_summary[error] = failed_error_summary.get(error, 0) + 1
     
     return {
         "Total Sessions": len(sessions_df),
         "Successful Sessions": int((sessions_df['result'] == "Successful").sum()),
+        "Successful Session Errors": successful_error_summary,
         "Failed Sessions": int((sessions_df['result'] == "Failed").sum()),
+        "Failed Session Reasons": failed_error_summary,
         "Incomplete Sessions": int((sessions_df['result'] == "Incomplete").sum()),
     }
 

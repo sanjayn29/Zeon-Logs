@@ -34,7 +34,9 @@ interface ProcessedData {
   connector1_summary: {
     "Total Sessions": number;
     "Successful Sessions": number;
+    "Successful Session Errors"?: Record<string, number>;
     "Failed Sessions": number;
+    "Failed Session Reasons"?: Record<string, number>;
     "Incomplete Sessions": number;
     "Interrupted Sessions"?: number;
     "Total Energy (kWh)": number;
@@ -47,7 +49,9 @@ interface ProcessedData {
   connector2_summary: {
     "Total Sessions": number;
     "Successful Sessions": number;
+    "Successful Session Errors"?: Record<string, number>;
     "Failed Sessions": number;
+    "Failed Session Reasons"?: Record<string, number>;
     "Incomplete Sessions": number;
     "Interrupted Sessions"?: number;
     "Total Energy (kWh)": number;
@@ -167,6 +171,36 @@ export default function DashboardPage() {
   ]);
   const peakPower = allPeakPowers.length > 0 ? Math.max(...allPeakPowers) : 0;
 
+  // Aggregate error summaries
+  const aggregateSuccessfulErrors: Record<string, number> = {};
+  const aggregateFailedReasons: Record<string, number> = {};
+  
+  data.forEach(d => {
+    // Aggregate successful session errors
+    if (d.connector1_summary["Successful Session Errors"]) {
+      Object.entries(d.connector1_summary["Successful Session Errors"]).forEach(([error, count]) => {
+        aggregateSuccessfulErrors[error] = (aggregateSuccessfulErrors[error] || 0) + count;
+      });
+    }
+    if (d.connector2_summary["Successful Session Errors"]) {
+      Object.entries(d.connector2_summary["Successful Session Errors"]).forEach(([error, count]) => {
+        aggregateSuccessfulErrors[error] = (aggregateSuccessfulErrors[error] || 0) + count;
+      });
+    }
+    
+    // Aggregate failed session reasons
+    if (d.connector1_summary["Failed Session Reasons"]) {
+      Object.entries(d.connector1_summary["Failed Session Reasons"]).forEach(([reason, count]) => {
+        aggregateFailedReasons[reason] = (aggregateFailedReasons[reason] || 0) + count;
+      });
+    }
+    if (d.connector2_summary["Failed Session Reasons"]) {
+      Object.entries(d.connector2_summary["Failed Session Reasons"]).forEach(([reason, count]) => {
+        aggregateFailedReasons[reason] = (aggregateFailedReasons[reason] || 0) + count;
+      });
+    }
+  });
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -260,6 +294,66 @@ export default function DashboardPage() {
               variant="warning"
             />
           </div>
+
+          {/* Error Breakdown Section */}
+          {(Object.keys(aggregateFailedReasons).length > 0 || Object.keys(aggregateSuccessfulErrors).length > 0) && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-foreground">Error Analysis</h3>
+                <span className="text-xs px-2 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium">
+                  Diagnostics
+                </span>
+              </div>
+              
+              <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
+                {/* Failed Session Reasons */}
+                {Object.keys(aggregateFailedReasons).length > 0 && (
+                  <div className="glow-card rounded-xl bg-card p-6 border-2 border-red-500/20">
+                    <div className="flex items-center gap-2 mb-4">
+                      <XCircle className="w-5 h-5 text-red-500" />
+                      <h4 className="text-md font-semibold text-foreground">Failed Session Reasons</h4>
+                    </div>
+                    <div className="space-y-3">
+                      {Object.entries(aggregateFailedReasons)
+                        .sort(([, a], [, b]) => b - a)
+                        .map(([reason, count]) => (
+                          <div key={reason} className="flex items-center justify-between p-3 rounded-lg bg-red-500/5 border border-red-500/10">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                              <span className="text-sm font-medium text-foreground">{reason}</span>
+                            </div>
+                            <span className="text-lg font-bold text-red-600 dark:text-red-400">{count}</span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Successful Session Errors */}
+                {Object.keys(aggregateSuccessfulErrors).length > 0 && (
+                  <div className="glow-card rounded-xl bg-card p-6 border-2 border-yellow-500/20">
+                    <div className="flex items-center gap-2 mb-4">
+                      <AlertTriangle className="w-5 h-5 text-yellow-500" />
+                      <h4 className="text-md font-semibold text-foreground">Successful Session Errors</h4>
+                    </div>
+                    <div className="space-y-3">
+                      {Object.entries(aggregateSuccessfulErrors)
+                        .sort(([, a], [, b]) => b - a)
+                        .map(([error, count]) => (
+                          <div key={error} className="flex items-center justify-between p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/10">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                              <span className="text-sm font-medium text-foreground">{error}</span>
+                            </div>
+                            <span className="text-lg font-bold text-yellow-600 dark:text-yellow-400">{count}</span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* My Uploads Table */}
           <div className="glow-card rounded-xl bg-card p-6">
@@ -376,6 +470,32 @@ export default function DashboardPage() {
                   <p><strong>Avg Power:</strong> {selectedLog.connector1_summary["Average Power (kW)"]} kW</p>
                   <p><strong>Peak Power:</strong> {selectedLog.connector1_summary["Peak Power (kW)"]} kW</p>
                 </div>
+                {selectedLog.connector1_summary["Successful Session Errors"] && 
+                 Object.keys(selectedLog.connector1_summary["Successful Session Errors"]).length > 0 && (
+                  <div className="mt-3 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                    <h5 className="text-sm font-semibold text-yellow-600 dark:text-yellow-400 mb-2">Successful Session Errors:</h5>
+                    <div className="space-y-1">
+                      {Object.entries(selectedLog.connector1_summary["Successful Session Errors"]).map(([error, count]) => (
+                        <p key={error} className="text-xs text-yellow-600 dark:text-yellow-400">
+                          • {error}: <strong>{count}</strong>
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {selectedLog.connector1_summary["Failed Session Reasons"] && 
+                 Object.keys(selectedLog.connector1_summary["Failed Session Reasons"]).length > 0 && (
+                  <div className="mt-3 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                    <h5 className="text-sm font-semibold text-red-600 dark:text-red-400 mb-2">Failed Session Reasons:</h5>
+                    <div className="space-y-1">
+                      {Object.entries(selectedLog.connector1_summary["Failed Session Reasons"]).map(([reason, count]) => (
+                        <p key={reason} className="text-xs text-red-600 dark:text-red-400">
+                          • {reason}: <strong>{count}</strong>
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <h4 className="text-md font-semibold text-foreground">Connector 2 Summary</h4>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <p><strong>Total Sessions:</strong> {selectedLog.connector2_summary["Total Sessions"]}</p>
@@ -387,6 +507,32 @@ export default function DashboardPage() {
                   <p><strong>Avg Power:</strong> {selectedLog.connector2_summary["Average Power (kW)"]} kW</p>
                   <p><strong>Peak Power:</strong> {selectedLog.connector2_summary["Peak Power (kW)"]} kW</p>
                 </div>
+                {selectedLog.connector2_summary["Successful Session Errors"] && 
+                 Object.keys(selectedLog.connector2_summary["Successful Session Errors"]).length > 0 && (
+                  <div className="mt-3 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                    <h5 className="text-sm font-semibold text-yellow-600 dark:text-yellow-400 mb-2">Successful Session Errors:</h5>
+                    <div className="space-y-1">
+                      {Object.entries(selectedLog.connector2_summary["Successful Session Errors"]).map(([error, count]) => (
+                        <p key={error} className="text-xs text-yellow-600 dark:text-yellow-400">
+                          • {error}: <strong>{count}</strong>
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {selectedLog.connector2_summary["Failed Session Reasons"] && 
+                 Object.keys(selectedLog.connector2_summary["Failed Session Reasons"]).length > 0 && (
+                  <div className="mt-3 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                    <h5 className="text-sm font-semibold text-red-600 dark:text-red-400 mb-2">Failed Session Reasons:</h5>
+                    <div className="space-y-1">
+                      {Object.entries(selectedLog.connector2_summary["Failed Session Reasons"]).map(([reason, count]) => (
+                        <p key={reason} className="text-xs text-red-600 dark:text-red-400">
+                          • {reason}: <strong>{count}</strong>
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               <DialogFooter>
                 <Button variant="destructive" onClick={handleDeleteClick}>

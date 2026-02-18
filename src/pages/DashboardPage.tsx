@@ -43,6 +43,16 @@ function formatErrorDisplay(error: string): { mainError: string; subError: strin
   };
 }
 
+interface IdleTimeError {
+  timestamp: string;
+  status: string;
+  errorCode: string;
+  info: string;
+  vendorErrorCode: string;
+  connectorId?: number;
+  category?: string;
+}
+
 interface ProcessedData {
   document_id: string;
   filename: string;
@@ -57,6 +67,10 @@ interface ProcessedData {
     "Incomplete Sessions": number;
     "Interrupted Sessions"?: number;
     "Precharging Failures"?: number;
+    "Idle Time Errors"?: IdleTimeError[];
+    "Idle Time Error Count"?: number;
+    "Idle Time Warnings"?: IdleTimeError[];
+    "Idle Time Faults"?: IdleTimeError[];
     "Total Energy (kWh)": number;
     "Average Energy per Session (kWh)": number;
     "Total Duration (hours)": number;
@@ -73,6 +87,10 @@ interface ProcessedData {
     "Incomplete Sessions": number;
     "Interrupted Sessions"?: number;
     "Precharging Failures"?: number;
+    "Idle Time Errors"?: IdleTimeError[];
+    "Idle Time Error Count"?: number;
+    "Idle Time Warnings"?: IdleTimeError[];
+    "Idle Time Faults"?: IdleTimeError[];
     "Total Energy (kWh)": number;
     "Average Energy per Session (kWh)": number;
     "Total Duration (hours)": number;
@@ -169,6 +187,9 @@ export default function DashboardPage() {
   );
   const prechargingFailures = data.reduce((sum, d) => 
     sum + (d.connector1_summary["Precharging Failures"] || 0) + (d.connector2_summary["Precharging Failures"] || 0), 0
+  );
+  const totalIdleTimeErrors = data.reduce((sum, d) => 
+    sum + (d.connector1_summary["Idle Time Error Count"] || 0) + (d.connector2_summary["Idle Time Error Count"] || 0), 0
   );
   const totalEnergy = data.reduce((sum, d) => 
     sum + (d.connector1_summary["Total Energy (kWh)"] || 0) + (d.connector2_summary["Total Energy (kWh)"] || 0), 0
@@ -305,6 +326,27 @@ export default function DashboardPage() {
                 <div className="text-right">
                   <p className="text-xs text-muted-foreground">Sessions that never reached charging</p>
                   <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">&lt; 1 min, no errors</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Idle Time Errors */}
+          {totalIdleTimeErrors > 0 && (
+            <div className="glow-card rounded-xl bg-card p-4 border-2 border-orange-500/20">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-orange-500/10">
+                    <AlertTriangle className="w-5 h-5 text-orange-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Idle Time Errors</p>
+                    <p className="text-2xl font-bold text-foreground">{totalIdleTimeErrors}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">Unique idle faults detected</p>
+                  <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">(deduplicated & filtered)</p>
                 </div>
               </div>
             </div>
@@ -629,6 +671,89 @@ export default function DashboardPage() {
                         );
                       })}
                     </div>
+                  </div>
+                )}
+                
+                {/* Idle Time Errors - Combined from both connectors */}
+                {((selectedLog.connector1_summary["Idle Time Errors"] && selectedLog.connector1_summary["Idle Time Errors"].length > 0) ||
+                  (selectedLog.connector2_summary["Idle Time Errors"] && selectedLog.connector2_summary["Idle Time Errors"].length > 0)) && (
+                  <div className="mt-3 p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                    <h5 className="text-sm font-semibold text-orange-600 dark:text-orange-400 mb-2">
+                      Idle Time Errors ({[...(selectedLog.connector1_summary["Idle Time Errors"] || []), 
+                        ...(selectedLog.connector2_summary["Idle Time Errors"] || [])].length} unique):
+                      <span className="ml-2 text-xs font-normal opacity-70">(deduplicated, outside sessions)</span>
+                    </h5>
+                    
+                    {/* Show Faults separately if they exist */}
+                    {(() => {
+                      const allFaults = [...(selectedLog.connector1_summary["Idle Time Faults"] || []), 
+                                          ...(selectedLog.connector2_summary["Idle Time Faults"] || [])]
+                        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+                      const allWarnings = [...(selectedLog.connector1_summary["Idle Time Warnings"] || []), 
+                                            ...(selectedLog.connector2_summary["Idle Time Warnings"] || [])]
+                        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+                      
+                      return (
+                        <div className="space-y-3 max-h-60 overflow-y-auto">
+                          {allFaults.length > 0 && (
+                            <div>
+                              <p className="text-xs font-semibold text-red-600 dark:text-red-400 mb-2">
+                                🔴 Faults ({allFaults.length}):
+                              </p>
+                              <div className="space-y-2">
+                                {allFaults.map((error, idx) => {
+                                  const { displayText } = formatErrorDisplay(error.errorCode);
+                                  return (
+                                    <div key={idx} className="text-xs p-2 bg-red-500/5 rounded border border-red-500/20">
+                                      <div className="flex items-center justify-between mb-1">
+                                        <span className="font-semibold text-red-600 dark:text-red-400">{displayText}</span>
+                                        <span className="text-muted-foreground text-[10px]">{new Date(error.timestamp).toLocaleString()}</span>
+                                      </div>
+                                      <div className="text-muted-foreground space-y-0.5">
+                                        <p>Status: <strong>{error.status}</strong> | Connector: <strong>{error.connectorId || 0}</strong></p>
+                                        {error.info && error.info !== "None" && (
+                                          <p>Info: <strong className="text-red-600 dark:text-red-400">{error.info}</strong></p>
+                                        )}
+                                        {error.vendorErrorCode && error.vendorErrorCode !== "None" && (
+                                          <p>Vendor: <strong className="text-red-600 dark:text-red-400">{error.vendorErrorCode}</strong></p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {allWarnings.length > 0 && (
+                            <div>
+                              <p className="text-xs font-semibold text-yellow-600 dark:text-yellow-400 mb-2">
+                                ⚠️ Warnings ({allWarnings.length}):
+                              </p>
+                              <div className="space-y-2">
+                                {allWarnings.map((error, idx) => {
+                                  const { displayText } = formatErrorDisplay(error.errorCode);
+                                  return (
+                                    <div key={idx} className="text-xs p-2 bg-yellow-500/5 rounded border border-yellow-500/20">
+                                      <div className="flex items-center justify-between mb-1">
+                                        <span className="font-semibold text-yellow-600 dark:text-yellow-400">{displayText}</span>
+                                        <span className="text-muted-foreground text-[10px]">{new Date(error.timestamp).toLocaleString()}</span>
+                                      </div>
+                                      <div className="text-muted-foreground space-y-0.5">
+                                        <p>Status: <strong>{error.status}</strong> | Connector: <strong>{error.connectorId || 0}</strong></p>
+                                        {error.info && error.info !== "None" && (
+                                          <p>Info: <strong className="text-yellow-600 dark:text-yellow-400">{error.info}</strong></p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>

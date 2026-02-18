@@ -342,6 +342,198 @@ def is_precharging_failure(session_row):
     )
 
 
+def detect_idle_time_errors(df, sessions_df):
+    """
+    Detect errors that occur OUTSIDE charging sessions.
+    These are idle-time charger / EV / firmware issues.
+    
+    Features:
+    - STRICT filtering of non-actionable errors
+    - Status-aware deduplication (treats same idle episode as one incident)
+    - Session + 2-minute post-session exclusion
+    - Categorization into warnings vs faults
+    """
+    
+    if df.empty or sessions_df.empty:
+        return {"warnings": [], "faults": [], "all_errors": [], "total_count": 0}
+    
+    # Strict ignore list - non-actionable values
+    IGNORE_IDLE_ERRORS = [
+        "NoError",
+        "None",
+        "nan",
+        "",
+        None,
+        "Available",
+        "Preparing",
+        "StatusNotification"
+    ]
+    
+    # Convert session time ranges to datetime + add 2-minute buffer after session end
+    session_ranges = []
+    for _, s in sessions_df.iterrows():
+        try:
+            start = pd.to_datetime(s["start_time"])
+            end = pd.to_datetime(s["end_time"])
+            # Add 2-minute window after session to exclude stop-transaction spillover
+            end_with_buffer = end + timedelta(minutes=2)
+            session_ranges.append((start, end_with_buffer))
+        except:
+            continue
+    
+    def is_inside_any_session(ts):
+        """Check if timestamp is inside any session (including 2-min post-session buffer)"""
+        for start, end_with_buffer in session_ranges:
+            if start <= ts <= end_with_buffer:
+                return True
+        return False
+    
+    # Look only at StatusNotificationRequest (where idle errors usually appear)
+    status_rows = df[df["command"] == "StatusNotificationRequest"]
+    
+    raw_errors = []
+    
+    for _, row in status_rows.iterrows():
+        ts = row.get("real_datetime")
+        if pd.isna(ts):
+            continue
+        
+        # Skip if inside a session (including 2-min post-session buffer)
+        if is_inside_any_session(ts):
+            continue
+        
+        payload = row.get("payload_json", {})
+        error_code = payload.get("errorCode")
+        info = payload.get("info")
+        vendor_error = payload.get("vendorErrorCode")
+        connector_id = payload.get("connectorId", 0)
+        status = payload.get("status")
+        
+        # Convert None to string for comparison
+        error_code_str = str(error_code) if error_code is not None else ""
+        info_str = str(info) if info is not None else ""
+        vendor_error_str = str(vendor_error) if vendor_error is not None else ""
+        
+        # STRICT FILTERING: Reject unless at least ONE real field exists
+        # Check if ALL fields are in ignore list
+        error_code_ignored = error_code in IGNORE_IDLE_ERRORS or error_code_str in ["", "None", "nan"]
+        info_ignored = info in IGNORE_IDLE_ERRORS or info_str in ["", "None", "nan"]
+        vendor_error_ignored = vendor_error in IGNORE_IDLE_ERRORS or vendor_error_str in ["", "None", "nan"]
+        
+        if error_code_ignored and info_ignored and vendor_error_ignored:
+            # All fields are empty/ignored - skip this row
+            continue
+        
+        # Enrich OtherError with sub-reason
+        display_error = error_code
+        if error_code == "OtherError":
+            sub_error = normalize_other_error(error_code, info, vendor_error)
+            display_error = f"OtherError:{sub_error}"
+        
+        raw_errors.append({
+            "timestamp": ts,
+            "timestamp_str": ts.strftime("%Y-%m-%d %H:%M:%S"),
+            "status": status,
+            "errorCode": display_error,
+            "info": info,
+            "vendorErrorCode": vendor_error,
+            "connectorId": connector_id,
+            "signature": (error_code_str, info_str, vendor_error_str, connector_id)
+        })
+    
+    # STATUS-AWARE DEDUPLICATION (idle episode detection)
+    deduped_errors = []
+    seen = {}  # signature -> (last_timestamp, last_status)
+    
+    # Sort by timestamp
+    raw_errors.sort(key=lambda x: x["timestamp"])
+    
+    for error in raw_errors:
+        sig = error["signature"]
+        ts = error["timestamp"]
+        
+        # Check if we've seen this signature recently
+        if sig in seen:
+            last_ts, last_status = seen[sig]
+            time_diff_seconds = (ts - last_ts).total_seconds()
+            
+            # If same error + same status, treat as SAME idle incident (30-min window)
+            if time_diff_seconds < 1800 and error["status"] == last_status:
+                # Skip duplicate - same idle episode
+                continue
+        
+        # New or sufficiently different error - add it
+        seen[sig] = (ts, error["status"])
+        
+        # Categorize: warnings vs faults
+        is_warning = (
+            error["status"] in ["Available", "Preparing", "Finishing"] and
+            error["errorCode"] and 
+            not error["errorCode"].startswith("OtherError")
+        )
+        
+        error_entry = {
+            "timestamp": error["timestamp_str"],
+            "status": error["status"],
+            "errorCode": error["errorCode"],
+            "info": error["info"],
+            "vendorErrorCode": error["vendorErrorCode"],
+            "connectorId": error["connectorId"],
+            "category": "warning" if is_warning else "fault"
+        }
+        
+        deduped_errors.append(error_entry)
+    
+    # Separate into warnings and faults
+    warnings = [e for e in deduped_errors if e.get("category") == "warning"]
+    faults = [e for e in deduped_errors if e.get("category") == "fault"]
+    
+    return {
+        "warnings": warnings,
+        "faults": faults,
+        "all_errors": deduped_errors,
+        "total_count": len(deduped_errors)
+    }
+
+
+def collapse_idle_error_episodes(idle_errors, window_minutes=30):
+    """
+    Collapse repeated idle errors into single incidents.
+    Same connector + same error fields within window → ONE error.
+    
+    This prevents counting the same idle fault repeatedly (e.g., firmware spam,
+    status heartbeats) and instead treats each continuous episode as a single incident.
+    """
+    if not idle_errors:
+        return []
+
+    collapsed = []
+    last_seen = {}
+
+    for err in idle_errors:
+        # Build signature (friend-style)
+        sig = (
+            err.get("connectorId"),
+            err.get("errorCode"),
+            err.get("info"),
+            err.get("vendorErrorCode"),
+        )
+
+        ts = pd.to_datetime(err.get("timestamp"), errors="coerce")
+
+        if sig in last_seen:
+            prev_ts = last_seen[sig]
+            if pd.notna(ts) and pd.notna(prev_ts):
+                if (ts - prev_ts).total_seconds() < window_minutes * 60:
+                    # Same idle incident → SKIP
+                    continue
+
+        last_seen[sig] = ts
+        collapsed.append(err)
+
+    return collapsed
+
+
 def json_safe(obj):
     """Convert numpy types to Python types for JSON serialization"""
     if isinstance(obj, (np.integer,)):
@@ -537,6 +729,24 @@ def build_sessions_enhanced(df):
         precharging_df = sessions_df[sessions_df.apply(is_precharging_failure, axis=1)]
         precharging_count = len(precharging_df)
         
+        # Detect idle time errors (errors outside sessions)
+        raw_idle_errors = detect_idle_time_errors(df, sessions_df)
+        
+        # Collapse idle errors into episodes (same error repeatedly = 1 incident)
+        raw_all_errors = raw_idle_errors.get("all_errors", [])
+        collapsed_errors = collapse_idle_error_episodes(raw_all_errors, window_minutes=30)
+        
+        # Separate collapsed errors back into warnings/faults
+        collapsed_warnings = [e for e in collapsed_errors if e.get("category") == "warning"]
+        collapsed_faults = [e for e in collapsed_errors if e.get("category") == "fault"]
+        
+        idle_time_errors = {
+            "warnings": collapsed_warnings,
+            "faults": collapsed_faults,
+            "all_errors": collapsed_errors,
+            "total_count": len(collapsed_errors)
+        }
+        
         # Count successful sessions by error reason
         successful_sessions = sessions_df[sessions_df['result'] == "Successful"]
         successful_error_summary = {}
@@ -572,6 +782,10 @@ def build_sessions_enhanced(df):
             "Incomplete Sessions": int((sessions_df['result'] == "Incomplete").sum()),
             "Interrupted Sessions": int((sessions_df['result'] == "Interrupted").sum()),
             "Precharging Failures": precharging_count,
+            "Idle Time Errors": idle_time_errors.get("all_errors", []),
+            "Idle Time Error Count": idle_time_errors.get("total_count", 0),
+            "Idle Time Warnings": idle_time_errors.get("warnings", []),
+            "Idle Time Faults": idle_time_errors.get("faults", []),
             "Total Energy (kWh)": round(sessions_df['energy_kwh'].sum(), 2),
             "Average Energy per Session (kWh)": round(sessions_df['energy_kwh'].mean(), 2),
             "Total Duration (hours)": round(sessions_df['duration_hours'].sum(), 2),
@@ -589,6 +803,10 @@ def build_sessions_enhanced(df):
             "Incomplete Sessions": 0,
             "Interrupted Sessions": 0,
             "Precharging Failures": 0,
+            "Idle Time Errors": [],
+            "Idle Time Error Count": 0,
+            "Idle Time Warnings": [],
+            "Idle Time Faults": [],
             "Total Energy (kWh)": 0,
             "Total Duration (hours)": 0,
             "Average Power (kW)": 0,

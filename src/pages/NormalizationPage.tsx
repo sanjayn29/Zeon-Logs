@@ -16,6 +16,7 @@ interface UploadedFile {
 
 interface LocationState {
   uploadedFiles?: UploadedFile[];
+  documentIds?: string[];
   fromUpload?: boolean;
 }
 
@@ -36,17 +37,80 @@ export default function NormalizationPage() {
   const { user } = useAuth();
   const state = location.state as LocationState;
   const uploadedFiles = state?.uploadedFiles || [];
+  const documentIds = state?.documentIds || [];
   const hasFiles = uploadedFiles.length > 0;
   const [stats, setStats] = useState<LogStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (hasFiles && user?.email) {
-      fetchLatestStats();
+    if (hasFiles) {
+      if (documentIds.length > 0) {
+        fetchStatsByIds();
+      } else if (user?.email) {
+        fetchLatestStats();
+      }
     } else {
       setLoading(false);
     }
-  }, [hasFiles, user]);
+  }, [hasFiles, documentIds, user]);
+
+  const fetchStatsByIds = async () => {
+    try {
+      const response = await fetch(`${BACKEND_API}/get-by-ids`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(documentIds),
+      });
+      const result = await response.json();
+      
+      if (result.status === "success" && result.data.length > 0) {
+        // Aggregate stats from all fetched documents
+        let totalStats = {
+          totalSessions: 0,
+          successfulSessions: 0,
+          failedSessions: 0,
+          incompleteSessions: 0,
+          totalEnergy: 0,
+          totalDuration: 0,
+          totalPower: 0,
+          maxPeakPower: 0,
+          dataCount: 0,
+        };
+
+        result.data.forEach((doc: any) => {
+          const c1 = doc.connector1_summary;
+          const c2 = doc.connector2_summary;
+          
+          totalStats.totalSessions += (c1["Total Sessions"] || 0) + (c2["Total Sessions"] || 0);
+          totalStats.successfulSessions += (c1["Successful Sessions"] || 0) + (c2["Successful Sessions"] || 0);
+          totalStats.failedSessions += (c1["Failed Sessions"] || 0) + (c2["Failed Sessions"] || 0);
+          totalStats.incompleteSessions += (c1["Incomplete Sessions"] || 0) + (c2["Incomplete Sessions"] || 0);
+          totalStats.totalEnergy += (c1["Total Energy (kWh)"] || 0) + (c2["Total Energy (kWh)"] || 0);
+          totalStats.totalDuration += (c1["Average Duration (minutes)"] || 0) + (c2["Average Duration (minutes)"] || 0);
+          totalStats.totalPower += (c1["Average Power (kW)"] || 0) + (c2["Average Power (kW)"] || 0);
+          totalStats.maxPeakPower = Math.max(totalStats.maxPeakPower, c1["Peak Power (kW)"] || 0, c2["Peak Power (kW)"] || 0);
+          totalStats.dataCount += 2; // 2 connectors per document
+        });
+        
+        setStats({
+          totalSessions: totalStats.totalSessions,
+          successfulSessions: totalStats.successfulSessions,
+          failedSessions: totalStats.failedSessions,
+          incompleteSessions: totalStats.incompleteSessions,
+          totalEnergy: totalStats.totalEnergy,
+          averageDuration: totalStats.dataCount > 0 ? totalStats.totalDuration / totalStats.dataCount : 0,
+          averagePower: totalStats.dataCount > 0 ? totalStats.totalPower / totalStats.dataCount : 0,
+          peakPower: totalStats.maxPeakPower,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to fetch stats by IDs:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchLatestStats = async () => {
     try {

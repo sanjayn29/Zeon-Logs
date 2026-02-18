@@ -45,16 +45,24 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchAllData();
-  }, []);
+    if (user?.email) {
+      fetchUserData();
+    } else {
+      setLoading(false);
+    }
+  }, [user]);
 
-  const fetchAllData = async () => {
+  const fetchUserData = async () => {
     try {
-      const response = await fetch(`${BACKEND_API}/all-data`);
+      const response = await fetch(`${BACKEND_API}/user-data/${user?.email}`);
       const result = await response.json();
       if (result.status === "success") {
-        console.log("📊 Fetched all data:", result.data);
-        setData(result.data);
+        console.log("📊 Fetched user data:", result.data);
+        // Sort by upload_time in descending order (most recent first)
+        const sortedData = result.data.sort((a: ProcessedData, b: ProcessedData) => {
+          return new Date(b.upload_time).getTime() - new Date(a.upload_time).getTime();
+        });
+        setData(sortedData);
       }
     } catch (error) {
       console.error("Failed to fetch data:", error);
@@ -180,11 +188,16 @@ export default function DashboardPage() {
             />
           </div>
 
-          {/* All Uploads Table */}
+          {/* My Uploads Table */}
           <div className="glow-card rounded-xl bg-card p-6">
-            <h3 className="text-lg font-semibold text-foreground mb-4">
-              All Uploaded Data ({data.length} total)
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground">
+                My Uploaded Files
+              </h3>
+              <div className="text-sm text-muted-foreground">
+                {data.length} total • Sorted by most recent
+              </div>
+            </div>
             <div className="space-y-3">
               {data.map((item) => {
                 const totalSessionsItem = (item.connector1_summary["Total Sessions"] || 0) + (item.connector2_summary["Total Sessions"] || 0);

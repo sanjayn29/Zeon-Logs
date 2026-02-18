@@ -14,6 +14,7 @@ interface UploadedFile {
   type: string;
   status: "uploading" | "done" | "error";
   errorMessage?: string;
+  documentId?: string;
 }
 
 export default function UploadPage() {
@@ -52,9 +53,11 @@ export default function UploadPage() {
           throw new Error("Upload failed");
         }
 
-        // Mark as done
+        const result = await response.json();
+
+        // Mark as done and store document ID
         setFiles((prev) =>
-          prev.map((f) => (f.name === file.name ? { ...f, status: "done" } : f))
+          prev.map((f) => (f.name === file.name ? { ...f, status: "done", documentId: result.document_id } : f))
         );
       } catch (error) {
         setFiles((prev) =>
@@ -174,9 +177,11 @@ export default function UploadPage() {
           <Button
             onClick={() => {
               const processedFiles = files.filter(f => f.status === "done");
+              const documentIds = processedFiles.map(f => f.documentId).filter(Boolean);
               navigate("/normalization", { 
                 state: { 
                   uploadedFiles: processedFiles,
+                  documentIds: documentIds,
                   fromUpload: true 
                 } 
               });

@@ -210,6 +210,37 @@ async def get_all_data():
 
 
 # =====================================================
+# GET DATA BY DOCUMENT IDS
+# =====================================================
+@app.post("/get-by-ids")
+async def get_data_by_ids(document_ids: list[str]):
+    """Get data for specific document IDs"""
+    
+    if db is None:
+        raise HTTPException(status_code=503, detail="Firebase not connected")
+    
+    try:
+        data_list = []
+        for doc_id in document_ids:
+            doc_ref = db.collection("datas").document(str(doc_id))
+            doc = doc_ref.get()
+            
+            if doc.exists:
+                data = doc.to_dict()
+                data["document_id"] = doc.id
+                data_list.append(data)
+        
+        return JSONResponse(content={
+            "status": "success",
+            "total": len(data_list),
+            "data": data_list
+        })
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+
+# =====================================================
 # HELPER FUNCTIONS
 # =====================================================
 def get_next_document_id():

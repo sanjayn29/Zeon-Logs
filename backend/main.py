@@ -288,6 +288,45 @@ def get_next_document_id():
         return 1
 
 
+def normalize_other_error(error_code, info, vendor_error):
+    """
+    Enrich OtherError with meaningful sub-reason
+    Does NOT modify original errorCode - only adds context
+    """
+    if error_code != "OtherError":
+        return None
+
+    text = " ".join([
+        str(info or ""),
+        str(vendor_error or "")
+    ]).lower()
+
+    # Vehicle / protocol related
+    if "vehicleprotocolerror" in text or "evstopabnrml" in text:
+        return "VehicleProtocolError"
+
+    # Communication issues
+    if "communication" in text or "timeout" in text:
+        return "EVCommunicationFailure"
+
+    # Power / electrical
+    if "overcurrent" in text:
+        return "OverCurrentDetected"
+
+    if "undervoltage" in text:
+        return "UnderVoltageDetected"
+
+    # User / EV behavior
+    if "evdisconnected" in text:
+        return "EVDisconnectedUnexpectedly"
+
+    # Charger internal
+    if "internal" in text:
+        return "ChargerInternalError"
+
+    return "UnclassifiedOtherError"
+
+
 def json_safe(obj):
     """Convert numpy types to Python types for JSON serialization"""
     if isinstance(obj, (np.integer,)):
@@ -401,7 +440,16 @@ def build_sessions_enhanced(df):
                 status = status_payload.get('status', '')
                 
                 if error_code != 'NoError':
-                    errors.append(error_code)
+                    # Enrich OtherError with meaningful sub-reason
+                    if error_code == "OtherError":
+                        sub_error = normalize_other_error(
+                            error_code,
+                            status_payload.get("info"),
+                            status_payload.get("vendorErrorCode")
+                        )
+                        errors.append(f"OtherError:{sub_error}")
+                    else:
+                        errors.append(error_code)
                 if status == 'Charging':
                     had_charging = True
             

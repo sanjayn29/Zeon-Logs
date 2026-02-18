@@ -26,6 +26,23 @@ import { Trash2 } from "lucide-react";
 
 const BACKEND_API = "http://localhost:8000";
 
+// Helper function to format enriched error display
+function formatErrorDisplay(error: string): { mainError: string; subError: string | null; displayText: string } {
+  if (error.includes(':')) {
+    const [mainError, subError] = error.split(':', 2);
+    return {
+      mainError,
+      subError,
+      displayText: `${mainError} (${subError.replace(/([A-Z])/g, ' $1').trim()})`
+    };
+  }
+  return {
+    mainError: error,
+    subError: null,
+    displayText: error
+  };
+}
+
 interface ProcessedData {
   document_id: string;
   filename: string;
@@ -309,22 +326,33 @@ export default function DashboardPage() {
                 {/* Failed Session Reasons */}
                 {Object.keys(aggregateFailedReasons).length > 0 && (
                   <div className="glow-card rounded-xl bg-card p-6 border-2 border-red-500/20">
-                    <div className="flex items-center gap-2 mb-4">
-                      <XCircle className="w-5 h-5 text-red-500" />
-                      <h4 className="text-md font-semibold text-foreground">Failed Session Reasons</h4>
+                    <div className="flex flex-col gap-1 mb-4">
+                      <div className="flex items-center gap-2">
+                        <XCircle className="w-5 h-5 text-red-500" />
+                        <h4 className="text-md font-semibold text-foreground">Failed Session Reasons</h4>
+                      </div>
+                      <p className="text-xs text-muted-foreground ml-7">Sessions may have multiple errors</p>
                     </div>
                     <div className="space-y-3">
                       {Object.entries(aggregateFailedReasons)
                         .sort(([, a], [, b]) => b - a)
-                        .map(([reason, count]) => (
-                          <div key={reason} className="flex items-center justify-between p-3 rounded-lg bg-red-500/5 border border-red-500/10">
-                            <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                              <span className="text-sm font-medium text-foreground">{reason}</span>
+                        .map(([reason, count]) => {
+                          const { displayText, subError } = formatErrorDisplay(reason);
+                          return (
+                            <div key={reason} className="flex items-center justify-between p-3 rounded-lg bg-red-500/5 border border-red-500/10">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-medium text-foreground">{displayText}</span>
+                                  {subError && (
+                                    <span className="text-xs text-muted-foreground mt-0.5">Enhanced info extracted</span>
+                                  )}
+                                </div>
+                              </div>
+                              <span className="text-lg font-bold text-red-600 dark:text-red-400">{count}</span>
                             </div>
-                            <span className="text-lg font-bold text-red-600 dark:text-red-400">{count}</span>
-                          </div>
-                        ))}
+                          );
+                        })}
                     </div>
                   </div>
                 )}
@@ -339,15 +367,23 @@ export default function DashboardPage() {
                     <div className="space-y-3">
                       {Object.entries(aggregateSuccessfulErrors)
                         .sort(([, a], [, b]) => b - a)
-                        .map(([error, count]) => (
-                          <div key={error} className="flex items-center justify-between p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/10">
-                            <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
-                              <span className="text-sm font-medium text-foreground">{error}</span>
+                        .map(([error, count]) => {
+                          const { displayText, subError } = formatErrorDisplay(error);
+                          return (
+                            <div key={error} className="flex items-center justify-between p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/10">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-medium text-foreground">{displayText}</span>
+                                  {subError && (
+                                    <span className="text-xs text-muted-foreground mt-0.5">Enhanced info extracted</span>
+                                  )}
+                                </div>
+                              </div>
+                              <span className="text-lg font-bold text-yellow-600 dark:text-yellow-400">{count}</span>
                             </div>
-                            <span className="text-lg font-bold text-yellow-600 dark:text-yellow-400">{count}</span>
-                          </div>
-                        ))}
+                          );
+                        })}
                     </div>
                   </div>
                 )}
@@ -475,24 +511,33 @@ export default function DashboardPage() {
                   <div className="mt-3 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
                     <h5 className="text-sm font-semibold text-yellow-600 dark:text-yellow-400 mb-2">Successful Session Errors:</h5>
                     <div className="space-y-1">
-                      {Object.entries(selectedLog.connector1_summary["Successful Session Errors"]).map(([error, count]) => (
-                        <p key={error} className="text-xs text-yellow-600 dark:text-yellow-400">
-                          • {error}: <strong>{count}</strong>
-                        </p>
-                      ))}
+                      {Object.entries(selectedLog.connector1_summary["Successful Session Errors"]).map(([error, count]) => {
+                        const { displayText } = formatErrorDisplay(error);
+                        return (
+                          <p key={error} className="text-xs text-yellow-600 dark:text-yellow-400">
+                            • {displayText}: <strong>{count}</strong>
+                          </p>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
                 {selectedLog.connector1_summary["Failed Session Reasons"] && 
                  Object.keys(selectedLog.connector1_summary["Failed Session Reasons"]).length > 0 && (
                   <div className="mt-3 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-                    <h5 className="text-sm font-semibold text-red-600 dark:text-red-400 mb-2">Failed Session Reasons:</h5>
+                    <h5 className="text-sm font-semibold text-red-600 dark:text-red-400 mb-2">
+                      Failed Session Reasons:
+                      <span className="ml-2 text-xs font-normal opacity-70">(sessions may have multiple errors)</span>
+                    </h5>
                     <div className="space-y-1">
-                      {Object.entries(selectedLog.connector1_summary["Failed Session Reasons"]).map(([reason, count]) => (
-                        <p key={reason} className="text-xs text-red-600 dark:text-red-400">
-                          • {reason}: <strong>{count}</strong>
-                        </p>
-                      ))}
+                      {Object.entries(selectedLog.connector1_summary["Failed Session Reasons"]).map(([reason, count]) => {
+                        const { displayText } = formatErrorDisplay(reason);
+                        return (
+                          <p key={reason} className="text-xs text-red-600 dark:text-red-400">
+                            • {displayText}: <strong>{count}</strong>
+                          </p>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -512,24 +557,33 @@ export default function DashboardPage() {
                   <div className="mt-3 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
                     <h5 className="text-sm font-semibold text-yellow-600 dark:text-yellow-400 mb-2">Successful Session Errors:</h5>
                     <div className="space-y-1">
-                      {Object.entries(selectedLog.connector2_summary["Successful Session Errors"]).map(([error, count]) => (
-                        <p key={error} className="text-xs text-yellow-600 dark:text-yellow-400">
-                          • {error}: <strong>{count}</strong>
-                        </p>
-                      ))}
+                      {Object.entries(selectedLog.connector2_summary["Successful Session Errors"]).map(([error, count]) => {
+                        const { displayText } = formatErrorDisplay(error);
+                        return (
+                          <p key={error} className="text-xs text-yellow-600 dark:text-yellow-400">
+                            • {displayText}: <strong>{count}</strong>
+                          </p>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
                 {selectedLog.connector2_summary["Failed Session Reasons"] && 
                  Object.keys(selectedLog.connector2_summary["Failed Session Reasons"]).length > 0 && (
                   <div className="mt-3 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-                    <h5 className="text-sm font-semibold text-red-600 dark:text-red-400 mb-2">Failed Session Reasons:</h5>
+                    <h5 className="text-sm font-semibold text-red-600 dark:text-red-400 mb-2">
+                      Failed Session Reasons:
+                      <span className="ml-2 text-xs font-normal opacity-70">(sessions may have multiple errors)</span>
+                    </h5>
                     <div className="space-y-1">
-                      {Object.entries(selectedLog.connector2_summary["Failed Session Reasons"]).map(([reason, count]) => (
-                        <p key={reason} className="text-xs text-red-600 dark:text-red-400">
-                          • {reason}: <strong>{count}</strong>
-                        </p>
-                      ))}
+                      {Object.entries(selectedLog.connector2_summary["Failed Session Reasons"]).map(([reason, count]) => {
+                        const { displayText } = formatErrorDisplay(reason);
+                        return (
+                          <p key={reason} className="text-xs text-red-600 dark:text-red-400">
+                            • {displayText}: <strong>{count}</strong>
+                          </p>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

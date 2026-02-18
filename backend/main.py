@@ -30,7 +30,7 @@ app = FastAPI(title="Zeon Backend API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://localhost:8081", "http://localhost:8080"],
+    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://localhost:8081", "http://localhost:8080", "http://localhost:8082"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -632,6 +632,16 @@ def build_sessions_enhanced(df):
             duration_hrs = round(duration_sec / 3600, 2)
             avg_power_kw = round(energy_kwh / duration_hrs, 2) if duration_hrs > 0 else 0
             
+            # DEBUG: Log first few sessions to check meter values
+            if len(sessions) < 3:
+                print(f"DEBUG Session {len(sessions)+1}:")
+                print(f"  meterStart: {meter_start} Wh")
+                print(f"  meterStop: {meter_stop} Wh")
+                print(f"  energy_wh: {energy_wh} Wh")
+                print(f"  energy_kwh: {energy_kwh} kWh")
+                print(f"  duration: {duration_min} min ({duration_hrs} hrs)")
+                print(f"  avg_power: {avg_power_kw} kW")
+            
             # Get status changes during this session
             session_statuses = status_changes[
                 (status_changes['real_datetime'] >= start_time) & 
@@ -773,6 +783,61 @@ def build_sessions_enhanced(df):
                     if error and error != "None":
                         failed_error_summary[error] = failed_error_summary.get(error, 0) + 1
         
+        # ===============================
+        # ✅ CORRECT AVERAGE POWER (WEIGHTED)
+        # ===============================
+        # Filter to only sessions that actually delivered energy
+        charging_sessions = sessions_df[
+            (sessions_df['energy_kwh'] > 0) & (sessions_df['duration_hours'] > 0)
+        ]
+        
+        # Calculate total energy from charging sessions only (in kWh)
+        total_energy_kwh = charging_sessions['energy_kwh'].sum()
+        
+        # Calculate total charging time in HOURS (not minutes!)
+        total_charging_hours = charging_sessions['duration_hours'].sum()
+        
+        # Calculate peak power for validation
+        peak_power_kw = sessions_df['max_power_kw'].max() if (sessions_df['max_power_kw'] > 0).any() else 0
+        
+        # DEBUG: Log the values to understand the calculation
+        print(f"\n=== AVERAGE POWER CALCULATION DEBUG ===")
+        print(f"Total charging sessions (energy > 0): {len(charging_sessions)}")
+        print(f"Total energy from charging sessions: {total_energy_kwh:.2f} kWh")
+        print(f"Total charging time: {total_charging_hours:.2f} hours ({total_charging_hours * 60:.1f} minutes)")
+        print(f"Total ALL session energy: {sessions_df['energy_kwh'].sum():.2f} kWh")
+        print(f"Total ALL session time: {sessions_df['duration_hours'].sum():.2f} hours")
+        print(f"Peak power in sessions: {peak_power_kw:.2f} kW")
+        
+        if total_charging_hours > 0:
+            avg_power_weighted_kw = round(
+                total_energy_kwh / total_charging_hours, 2
+            )
+            print(f"Calculated average power: {avg_power_weighted_kw:.2f} kW")
+            
+            # SAFETY CHECK: Average power should never exceed peak power
+            if avg_power_weighted_kw > peak_power_kw and peak_power_kw > 0:
+                print(f"⚠️ WARNING: Average power ({avg_power_weighted_kw} kW) exceeds peak power ({peak_power_kw} kW)!")
+                print(f"⚠️ This indicates a calculation error. Setting to 0.")
+                avg_power_weighted_kw = 0
+        else:
+            avg_power_weighted_kw = 0
+            print(f"No charging hours, average power set to 0")
+        print(f"======================================\n")
+        
+        # DEBUG: Energy calculation
+        print(f"\n=== TOTAL ENERGY CALCULATION DEBUG ===")
+        print(f"Number of sessions: {len(sessions_df)}")
+        print(f"Session energies (first 5): {sessions_df['energy_kwh'].head().tolist()}")
+        print(f"Session energies (last 5): {sessions_df['energy_kwh'].tail().tolist()}")
+        print(f"Total energy from ALL sessions: {sessions_df['energy_kwh'].sum():.2f} kWh")
+        print(f"Average energy per session: {sessions_df['energy_kwh'].mean():.2f} kWh")
+        print(f"Max session energy: {sessions_df['energy_kwh'].max():.2f} kWh")
+        print(f"Min session energy: {sessions_df['energy_kwh'].min():.2f} kWh")
+        print(f"Sessions with energy > 0: {(sessions_df['energy_kwh'] > 0).sum()}")
+        print(f"Sessions with energy = 0: {(sessions_df['energy_kwh'] == 0).sum()}")
+        print(f"======================================\n")
+        
         metrics = {
             "Total Sessions": len(sessions_df),
             "Successful Sessions": int((sessions_df['result'] == "Successful").sum()),
@@ -790,8 +855,8 @@ def build_sessions_enhanced(df):
             "Average Energy per Session (kWh)": round(sessions_df['energy_kwh'].mean(), 2),
             "Total Duration (hours)": round(sessions_df['duration_hours'].sum(), 2),
             "Average Duration (minutes)": round(sessions_df['duration_minutes'].mean(), 1),
-            "Average Power (kW)": round(sessions_df[sessions_df['avg_power_kw'] > 0]['avg_power_kw'].mean(), 2) if (sessions_df['avg_power_kw'] > 0).any() else 0,
-            "Peak Power (kW)": round(sessions_df['max_power_kw'].max(), 2) if (sessions_df['max_power_kw'] > 0).any() else 0,
+            "Average Power (kW)": avg_power_weighted_kw,
+            "Peak Power (kW)": round(peak_power_kw, 2),
         }
     else:
         metrics = {
@@ -808,8 +873,11 @@ def build_sessions_enhanced(df):
             "Idle Time Warnings": [],
             "Idle Time Faults": [],
             "Total Energy (kWh)": 0,
+            "Average Energy per Session (kWh)": 0,
             "Total Duration (hours)": 0,
+            "Average Duration (minutes)": 0,
             "Average Power (kW)": 0,
+            "Peak Power (kW)": 0,
         }
     
     return sessions_df, metrics

@@ -172,11 +172,19 @@ export default function UploadPage() {
       {doneCount > 0 && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <Button
-            onClick={() => navigate("/dashboard")}
+            onClick={() => {
+              const processedFiles = files.filter(f => f.status === "done");
+              navigate("/normalization", { 
+                state: { 
+                  uploadedFiles: processedFiles,
+                  fromUpload: true 
+                } 
+              });
+            }}
             className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
             size="lg"
           >
-            View Analysis ({doneCount} file{doneCount > 1 ? "s" : ""} processed)
+            Continue to Normalization ({doneCount} file{doneCount > 1 ? "s" : ""} processed)
           </Button>
         </motion.div>
       )}

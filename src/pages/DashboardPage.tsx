@@ -10,6 +10,7 @@ interface ProcessedData {
   document_id: string;
   filename: string;
   upload_time: string;
+  user_email: string;
   connector1_summary: {
     "Total Sessions": number;
     "Successful Sessions": number;
@@ -44,17 +45,15 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user?.email) {
-      fetchUserData();
-    }
-  }, [user]);
+    fetchAllData();
+  }, []);
 
-  const fetchUserData = async () => {
+  const fetchAllData = async () => {
     try {
-      const response = await fetch(`${BACKEND_API}/user-data/${user?.email}`);
+      const response = await fetch(`${BACKEND_API}/all-data`);
       const result = await response.json();
       if (result.status === "success") {
-        console.log("📊 Fetched data:", result.data);
+        console.log("📊 Fetched all data:", result.data);
         setData(result.data);
       }
     } catch (error) {
@@ -181,11 +180,13 @@ export default function DashboardPage() {
             />
           </div>
 
-          {/* Recent Uploads */}
+          {/* All Uploads Table */}
           <div className="glow-card rounded-xl bg-card p-6">
-            <h3 className="text-lg font-semibold text-foreground mb-4">Recent Uploads</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-4">
+              All Uploaded Data ({data.length} total)
+            </h3>
             <div className="space-y-3">
-              {data.slice(0, 5).map((item) => {
+              {data.map((item) => {
                 const totalSessionsItem = (item.connector1_summary["Total Sessions"] || 0) + (item.connector2_summary["Total Sessions"] || 0);
                 const successfulSessionsItem = (item.connector1_summary["Successful Sessions"] || 0) + (item.connector2_summary["Successful Sessions"] || 0);
                 const totalEnergyItem = (item.connector1_summary["Total Energy (kWh)"] || 0) + (item.connector2_summary["Total Energy (kWh)"] || 0);
@@ -193,10 +194,18 @@ export default function DashboardPage() {
                 const totalDurationHours = (item.connector1_summary["Total Duration (hours)"] || 0) + (item.connector2_summary["Total Duration (hours)"] || 0);
                 
                 return (
-                  <div key={item.document_id} className="p-4 rounded-lg bg-background/50 border border-border">
+                  <div key={item.document_id} className="p-4 rounded-lg bg-background/50 border border-border hover:bg-background/70 transition-colors">
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-foreground">{item.filename}</p>
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-sm font-medium text-foreground">{item.filename}</p>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                            ID: {item.document_id}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Uploaded by: <span className="font-medium text-foreground">{item.user_email}</span>
+                        </p>
                         <p className="text-xs text-muted-foreground">
                           {new Date(item.upload_time).toLocaleString()}
                         </p>

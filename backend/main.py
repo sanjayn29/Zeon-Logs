@@ -180,6 +180,36 @@ async def get_user_data(user_email: str):
 
 
 # =====================================================
+# GET ALL DATA FROM DATAS COLLECTION
+# =====================================================
+@app.get("/all-data")
+async def get_all_data():
+    """Get all uploaded data from datas collection"""
+    
+    if db is None:
+        raise HTTPException(status_code=503, detail="Firebase not connected")
+    
+    try:
+        # Query Firestore for all documents
+        docs = db.collection("datas").stream()
+        
+        all_data = []
+        for doc in docs:
+            data = doc.to_dict()
+            data["document_id"] = doc.id
+            all_data.append(data)
+        
+        return JSONResponse(content={
+            "status": "success",
+            "total_uploads": len(all_data),
+            "data": all_data
+        })
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+
+# =====================================================
 # HELPER FUNCTIONS
 # =====================================================
 def get_next_document_id():

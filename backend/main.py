@@ -327,6 +327,21 @@ def normalize_other_error(error_code, info, vendor_error):
     return "UnclassifiedOtherError"
 
 
+def is_precharging_failure(session_row):
+    """
+    Pre-charging failure detection:
+    - Session started but never reached Charging status
+    - Duration is very short (< 1 minute)
+    - Not classified as Successful
+    - No real errors (indicates handshake/preparation issue)
+    """
+    return (
+        session_row.get("result") not in ["Successful"] and
+        session_row.get("duration_minutes", 0) < 1 and
+        session_row.get("errors") in ["None", "", None]
+    )
+
+
 def json_safe(obj):
     """Convert numpy types to Python types for JSON serialization"""
     if isinstance(obj, (np.integer,)):
@@ -518,6 +533,10 @@ def build_sessions_enhanced(df):
     
     # Calculate aggregate metrics
     if not sessions_df.empty:
+        # Detect pre-charging failures (post-classification)
+        precharging_df = sessions_df[sessions_df.apply(is_precharging_failure, axis=1)]
+        precharging_count = len(precharging_df)
+        
         # Count successful sessions by error reason
         successful_sessions = sessions_df[sessions_df['result'] == "Successful"]
         successful_error_summary = {}
@@ -552,6 +571,7 @@ def build_sessions_enhanced(df):
             "Failed Session Reasons": failed_error_summary,
             "Incomplete Sessions": int((sessions_df['result'] == "Incomplete").sum()),
             "Interrupted Sessions": int((sessions_df['result'] == "Interrupted").sum()),
+            "Precharging Failures": precharging_count,
             "Total Energy (kWh)": round(sessions_df['energy_kwh'].sum(), 2),
             "Average Energy per Session (kWh)": round(sessions_df['energy_kwh'].mean(), 2),
             "Total Duration (hours)": round(sessions_df['duration_hours'].sum(), 2),
@@ -567,6 +587,8 @@ def build_sessions_enhanced(df):
             "Failed Sessions": 0,
             "Failed Session Reasons": {},
             "Incomplete Sessions": 0,
+            "Interrupted Sessions": 0,
+            "Precharging Failures": 0,
             "Total Energy (kWh)": 0,
             "Total Duration (hours)": 0,
             "Average Power (kW)": 0,

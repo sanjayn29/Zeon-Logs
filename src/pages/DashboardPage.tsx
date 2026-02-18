@@ -56,6 +56,7 @@ interface ProcessedData {
     "Failed Session Reasons"?: Record<string, number>;
     "Incomplete Sessions": number;
     "Interrupted Sessions"?: number;
+    "Precharging Failures"?: number;
     "Total Energy (kWh)": number;
     "Average Energy per Session (kWh)": number;
     "Total Duration (hours)": number;
@@ -71,6 +72,7 @@ interface ProcessedData {
     "Failed Session Reasons"?: Record<string, number>;
     "Incomplete Sessions": number;
     "Interrupted Sessions"?: number;
+    "Precharging Failures"?: number;
     "Total Energy (kWh)": number;
     "Average Energy per Session (kWh)": number;
     "Total Duration (hours)": number;
@@ -164,6 +166,9 @@ export default function DashboardPage() {
   );
   const incompleteSessions = data.reduce((sum, d) => 
     sum + (d.connector1_summary["Incomplete Sessions"] || 0) + (d.connector2_summary["Incomplete Sessions"] || 0), 0
+  );
+  const prechargingFailures = data.reduce((sum, d) => 
+    sum + (d.connector1_summary["Precharging Failures"] || 0) + (d.connector2_summary["Precharging Failures"] || 0), 0
   );
   const totalEnergy = data.reduce((sum, d) => 
     sum + (d.connector1_summary["Total Energy (kWh)"] || 0) + (d.connector2_summary["Total Energy (kWh)"] || 0), 0
@@ -283,6 +288,27 @@ export default function DashboardPage() {
               variant="warning"
             />
           </div>
+
+          {/* Pre-Charging Failures */}
+          {prechargingFailures > 0 && (
+            <div className="glow-card rounded-xl bg-card p-4 border-2 border-purple-500/20">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-purple-500/10">
+                    <Plug className="w-5 h-5 text-purple-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Pre-Charging Failures</p>
+                    <p className="text-2xl font-bold text-foreground">{prechargingFailures}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">Sessions that never reached charging</p>
+                  <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">&lt; 1 min, no errors</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Energy & Power Metrics */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -501,6 +527,15 @@ export default function DashboardPage() {
                   <p><strong>Successful:</strong> {selectedLog.connector1_summary["Successful Sessions"]}</p>
                   <p><strong>Failed:</strong> {selectedLog.connector1_summary["Failed Sessions"]}</p>
                   <p><strong>Incomplete:</strong> {selectedLog.connector1_summary["Incomplete Sessions"]}</p>
+                  {(selectedLog.connector1_summary["Precharging Failures"] ?? 0) > 0 && (
+                    <p className="col-span-2">
+                      <strong className="text-purple-600 dark:text-purple-400">Pre-Charging Failures:</strong> 
+                      <span className="ml-1 text-purple-600 dark:text-purple-400">
+                        {selectedLog.connector1_summary["Precharging Failures"]}
+                      </span>
+                      <span className="text-xs text-muted-foreground ml-2">(never reached charging)</span>
+                    </p>
+                  )}
                   <p><strong>Total Energy:</strong> {selectedLog.connector1_summary["Total Energy (kWh)"]} kWh</p>
                   <p><strong>Avg Duration:</strong> {selectedLog.connector1_summary["Average Duration (minutes)"]} min</p>
                   <p><strong>Avg Power:</strong> {selectedLog.connector1_summary["Average Power (kW)"]} kW</p>
@@ -547,6 +582,15 @@ export default function DashboardPage() {
                   <p><strong>Successful:</strong> {selectedLog.connector2_summary["Successful Sessions"]}</p>
                   <p><strong>Failed:</strong> {selectedLog.connector2_summary["Failed Sessions"]}</p>
                   <p><strong>Incomplete:</strong> {selectedLog.connector2_summary["Incomplete Sessions"]}</p>
+                  {(selectedLog.connector2_summary["Precharging Failures"] ?? 0) > 0 && (
+                    <p className="col-span-2">
+                      <strong className="text-purple-600 dark:text-purple-400">Pre-Charging Failures:</strong> 
+                      <span className="ml-1 text-purple-600 dark:text-purple-400">
+                        {selectedLog.connector2_summary["Precharging Failures"]}
+                      </span>
+                      <span className="text-xs text-muted-foreground ml-2">(never reached charging)</span>
+                    </p>
+                  )}
                   <p><strong>Total Energy:</strong> {selectedLog.connector2_summary["Total Energy (kWh)"]} kWh</p>
                   <p><strong>Avg Duration:</strong> {selectedLog.connector2_summary["Average Duration (minutes)"]} min</p>
                   <p><strong>Avg Power:</strong> {selectedLog.connector2_summary["Average Power (kW)"]} kW</p>

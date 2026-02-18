@@ -241,6 +241,36 @@ async def get_data_by_ids(document_ids: list[str]):
 
 
 # =====================================================
+# DELETE LOG BY DOCUMENT ID
+# =====================================================
+@app.delete("/delete-log/{document_id}")
+async def delete_log(document_id: str):
+    """Delete a specific log document from Firestore"""
+    
+    if db is None:
+        raise HTTPException(status_code=503, detail="Firebase not connected")
+    
+    try:
+        doc_ref = db.collection("datas").document(document_id)
+        doc = doc_ref.get()
+
+        if not doc.exists:
+            raise HTTPException(status_code=404, detail=f"Log with ID {document_id} not found")
+
+        doc_ref.delete()
+        print(f"✅ Deleted from Firestore with ID: {document_id}")
+        
+        return JSONResponse(content={
+            "status": "success",
+            "message": f"Log {document_id} deleted successfully"
+        })
+        
+    except Exception as e:
+        print(f"❌ Error deleting log: {e}")
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+
+# =====================================================
 # HELPER FUNCTIONS
 # =====================================================
 def get_next_document_id():

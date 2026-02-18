@@ -3,6 +3,26 @@ import { StatCard } from "@/components/StatCard";
 import { Zap, CheckCircle, XCircle, Plug, AlertTriangle, Battery, BarChart3 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Trash2 } from "lucide-react";
 
 const BACKEND_API = "http://localhost:8000";
 
@@ -43,6 +63,8 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const [data, setData] = useState<ProcessedData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedLog, setSelectedLog] = useState<ProcessedData | null>(null);
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
 
   useEffect(() => {
     if (user?.email) {
@@ -68,6 +90,44 @@ export default function DashboardPage() {
       console.error("Failed to fetch data:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLogClick = (log: ProcessedData) => {
+    setSelectedLog(log);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedLog(null);
+  };
+
+  const handleDeleteClick = () => {
+    setIsAlertOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedLog) return;
+
+    try {
+      const response = await fetch(`${BACKEND_API}/delete-log/${selectedLog.document_id}`, {
+        method: 'DELETE',
+      });
+
+      const result = await response.json();
+
+      if (result.status === "success") {
+        // Remove the deleted log from the state
+        setData(prevData => prevData.filter(item => item.document_id !== selectedLog.document_id));
+        console.log("Log deleted successfully:", selectedLog.document_id);
+      } else {
+        console.error("Failed to delete log:", result.message);
+      }
+    } catch (error) {
+      console.error("Error deleting log:", error);
+    } finally {
+      // Close both dialogs
+      setIsAlertOpen(false);
+      setSelectedLog(null);
     }
   };
 
@@ -119,7 +179,7 @@ export default function DashboardPage() {
       <div>
         <h2 className="text-2xl font-bold text-foreground">Charging Insights Dashboard</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Performance overview from {data.length} analyzed log file{data.length !== 1 ? "s" : ""}.
+          Cumulative performance overview from all {data.length} analyzed log file{data.length !== 1 ? "s" : ""}.
         </p>
         {data.length > 0 && (totalEnergy === 0 || isNaN(totalEnergy)) && (
           <div className="mt-2 px-3 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
@@ -133,6 +193,19 @@ export default function DashboardPage() {
       {/* Stats Cards */}
       {data.length > 0 ? (
         <>
+          {/* Cumulative Session Statistics */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-foreground">Cumulative Statistics</h3>
+              <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
+                All {data.length} file{data.length !== 1 ? "s" : ""} combined
+              </span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Total metrics aggregated from all your uploaded log files
+            </p>
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
               label="Total Sessions"
@@ -207,7 +280,11 @@ export default function DashboardPage() {
                 const totalDurationHours = (item.connector1_summary["Total Duration (hours)"] || 0) + (item.connector2_summary["Total Duration (hours)"] || 0);
                 
                 return (
-                  <div key={item.document_id} className="p-4 rounded-lg bg-background/50 border border-border hover:bg-background/70 transition-colors">
+                  <div 
+                    key={item.document_id} 
+                    className="p-4 rounded-lg bg-background/50 border border-border hover:bg-background/70 transition-colors cursor-pointer"
+                    onClick={() => handleLogClick(item)}
+                  >
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
@@ -275,6 +352,70 @@ export default function DashboardPage() {
           </a>
         </motion.div>
       )}
+
+      {/* Log Details Modal */}
+      <Dialog open={!!selectedLog} onOpenChange={(isOpen) => !isOpen && handleCloseModal()}>
+        <DialogContent className="sm:max-w-[625px]">
+          {selectedLog && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-lg font-semibold">{selectedLog.filename}</DialogTitle>
+                <DialogDescription>
+                  Uploaded on {new Date(selectedLog.upload_time).toLocaleString()} by {selectedLog.user_email}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4 space-y-4">
+                <h4 className="text-md font-semibold text-foreground">Connector 1 Summary</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <p><strong>Total Sessions:</strong> {selectedLog.connector1_summary["Total Sessions"]}</p>
+                  <p><strong>Successful:</strong> {selectedLog.connector1_summary["Successful Sessions"]}</p>
+                  <p><strong>Failed:</strong> {selectedLog.connector1_summary["Failed Sessions"]}</p>
+                  <p><strong>Incomplete:</strong> {selectedLog.connector1_summary["Incomplete Sessions"]}</p>
+                  <p><strong>Total Energy:</strong> {selectedLog.connector1_summary["Total Energy (kWh)"]} kWh</p>
+                  <p><strong>Avg Duration:</strong> {selectedLog.connector1_summary["Average Duration (minutes)"]} min</p>
+                  <p><strong>Avg Power:</strong> {selectedLog.connector1_summary["Average Power (kW)"]} kW</p>
+                  <p><strong>Peak Power:</strong> {selectedLog.connector1_summary["Peak Power (kW)"]} kW</p>
+                </div>
+                <h4 className="text-md font-semibold text-foreground">Connector 2 Summary</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <p><strong>Total Sessions:</strong> {selectedLog.connector2_summary["Total Sessions"]}</p>
+                  <p><strong>Successful:</strong> {selectedLog.connector2_summary["Successful Sessions"]}</p>
+                  <p><strong>Failed:</strong> {selectedLog.connector2_summary["Failed Sessions"]}</p>
+                  <p><strong>Incomplete:</strong> {selectedLog.connector2_summary["Incomplete Sessions"]}</p>
+                  <p><strong>Total Energy:</strong> {selectedLog.connector2_summary["Total Energy (kWh)"]} kWh</p>
+                  <p><strong>Avg Duration:</strong> {selectedLog.connector2_summary["Average Duration (minutes)"]} min</p>
+                  <p><strong>Avg Power:</strong> {selectedLog.connector2_summary["Average Power (kW)"]} kW</p>
+                  <p><strong>Peak Power:</strong> {selectedLog.connector2_summary["Peak Power (kW)"]} kW</p>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="destructive" onClick={handleDeleteClick}>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </Button>
+                <Button variant="outline" onClick={handleCloseModal}>Close</Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Alert */}
+      <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the log file
+              and its associated data from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm}>Confirm Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

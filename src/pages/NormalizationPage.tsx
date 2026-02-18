@@ -187,54 +187,14 @@ export default function NormalizationPage() {
             </div>
           </motion.div>
 
-          {/* Normalization Status */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="glow-card rounded-xl bg-card p-6"
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-lg bg-green-500/10 flex items-center justify-center">
-                <Database className="w-6 h-6 text-green-500" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-foreground">Normalization Complete</h3>
-                <p className="text-sm text-muted-foreground">All data has been standardized and stored</p>
-              </div>
-            </div>
-            
-            <div className="grid gap-3 md:grid-cols-3 mt-4">
-              <div className="p-3 rounded-lg bg-background border border-border">
-                <div className="flex items-center gap-2 mb-1">
-                  <CheckCircle className="w-4 h-4 text-green-500" />
-                  <p className="text-xs font-medium text-muted-foreground">TIMESTAMPS</p>
-                </div>
-                <p className="text-sm text-foreground">ISO 8601 Format</p>
-              </div>
-              <div className="p-3 rounded-lg bg-background border border-border">
-                <div className="flex items-center gap-2 mb-1">
-                  <CheckCircle className="w-4 h-4 text-green-500" />
-                  <p className="text-xs font-medium text-muted-foreground">CONNECTOR IDs</p>
-                </div>
-                <p className="text-sm text-foreground">Standardized Mapping</p>
-              </div>
-              <div className="p-3 rounded-lg bg-background border border-border">
-                <div className="flex items-center gap-2 mb-1">
-                  <CheckCircle className="w-4 h-4 text-green-500" />
-                  <p className="text-xs font-medium text-muted-foreground">STATUS CODES</p>
-                </div>
-                <p className="text-sm text-foreground">Unified Classification</p>
-              </div>
-            </div>
-          </motion.div>
+          
 
-          {/* Log File Statistics */}
+          {/* Log File Statistics - RESTORED */}
           {loading ? (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
+              transition={{ delay: 0.1 }}
               className="glow-card rounded-xl bg-card p-6 text-center"
             >
               <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin mx-auto mb-3" />
@@ -244,16 +204,21 @@ export default function NormalizationPage() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
+              transition={{ delay: 0.1 }}
               className="glow-card rounded-xl bg-card p-6"
             >
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
                   <Activity className="w-6 h-6 text-primary" />
                 </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground">Log File Statistics</h3>
-                  <p className="text-sm text-muted-foreground">Comprehensive charging session analysis</p>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="text-lg font-semibold text-foreground">Uploaded File Statistics</h3>
+                    <span className="text-xs px-2 py-1 rounded-full bg-green-500/10 text-green-500 font-medium">
+                      This Upload Only
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Metrics for the file(s) you just uploaded</p>
                 </div>
               </div>
               
@@ -337,19 +302,67 @@ export default function NormalizationPage() {
             </motion.div>
           ) : null}
 
+          {/* Normalization Status */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="glow-card rounded-xl bg-card p-6"
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-lg bg-green-500/10 flex items-center justify-center">
+                <Database className="w-6 h-6 text-green-500" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">Normalization Complete</h3>
+                <p className="text-sm text-muted-foreground">All data has been standardized and stored</p>
+              </div>
+            </div>
+            
+            <div className="grid gap-3 md:grid-cols-3 mt-4">
+              <div className="p-3 rounded-lg bg-background border border-border">
+                <div className="flex items-center gap-2 mb-1">
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  <p className="text-xs font-medium text-muted-foreground">TIMESTAMPS</p>
+                </div>
+                <p className="text-sm text-foreground">ISO 8601 Format</p>
+              </div>
+              <div className="p-3 rounded-lg bg-background border border-border">
+                <div className="flex items-center gap-2 mb-1">
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  <p className="text-xs font-medium text-muted-foreground">CONNECTOR IDs</p>
+                </div>
+                <p className="text-sm text-foreground">Standardized Mapping</p>
+              </div>
+              <div className="p-3 rounded-lg bg-background border border-border">
+                <div className="flex items-center gap-2 mb-1">
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  <p className="text-xs font-medium text-muted-foreground">STATUS CODES</p>
+                </div>
+                <p className="text-sm text-foreground">Unified Classification</p>
+              </div>
+            </div>
+          </motion.div>
+
           {/* Proceed to Dashboard Button */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
+            className="space-y-3"
           >
+            <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+              <p className="text-sm text-muted-foreground text-center">
+                <span className="font-medium text-foreground">Next:</span> View your <span className="font-semibold text-primary">cumulative statistics</span> from all uploaded files in the Dashboard
+              </p>
+            </div>
             <Button
               onClick={() => navigate("/dashboard")}
               className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
               size="lg"
             >
               <Zap className="w-4 h-4 mr-2" />
-              Proceed to Dashboard
+              View Cumulative Dashboard
             </Button>
           </motion.div>
         </>

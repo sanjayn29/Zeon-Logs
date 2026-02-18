@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           description: "Please allow popups for this site and try again",
           variant: "destructive",
         });
-      } else if (error?.code === "auth/cancelled-popup-request") {
+      } else if (error?.code === "auth/cancelled-popup-request" || error?.code === "auth/popup-closed-by-user") {
         // User closed the popup - silently ignore
         return;
       } else {

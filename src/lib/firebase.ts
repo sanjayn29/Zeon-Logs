@@ -20,6 +20,11 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
+// Configure Google Provider to prompt for account selection
+googleProvider.setCustomParameters({
+  prompt: 'select_account'
+});
+
 // Initialize Cloud Firestore and get a reference to the service
 export const db = getFirestore(app);
 

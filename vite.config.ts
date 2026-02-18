@@ -10,6 +10,10 @@ export default defineConfig(() => ({
     hmr: {
       overlay: false,
     },
+    headers: {
+      'Cross-Origin-Embedder-Policy': 'unsafe-none',
+      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+    },
   },
   plugins: [react()],
   resolve: {

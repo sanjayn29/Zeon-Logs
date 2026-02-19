@@ -24,7 +24,7 @@ interface UserData {
 export default function ChatPage() {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([
-    { id: 0, role: "bot", text: "Hi! I'm **ChargeSense AI**. I can help you analyze your EV charger logs. Ask me about connector health, error patterns, session statistics, energy consumption, and more!" },
+    { id: 0, role: "bot", text: "Hi! I'm **Zeon AI**. I can help you analyze your EV charger logs. Ask me about connector health, error patterns, session statistics, energy consumption, and more!" },
   ]);
   const [input, setInput] = useState("");
   const [userData, setUserData] = useState<UserData[]>([]);
@@ -133,7 +133,7 @@ Log File ${index + 1}: ${log.filename}
           messages: [
             {
               role: "system",
-              content: `You are ChargeSense AI, an expert assistant for analyzing EV charging station data. You help users understand their OCPP charging logs.
+              content: `You are Zeon AI, an expert assistant for analyzing EV charging station data. You help users understand their OCPP charging logs.
 
 **Available Data:**
 ${dataContext}
@@ -192,7 +192,7 @@ ${dataContext}
   return (
     <div className="max-w-3xl mx-auto flex flex-col h-[calc(100vh-5rem)]">
       <div className="mb-4">
-        <h2 className="text-2xl font-bold text-foreground">Ask ChargeSense</h2>
+        <h2 className="text-2xl font-bold text-foreground">Ask Zeon AI</h2>
         <p className="text-sm text-muted-foreground mt-1">Natural-language Q&A about your charger data.</p>
         {isLoadingData && (
           <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">

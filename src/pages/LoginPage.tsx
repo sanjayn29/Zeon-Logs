@@ -68,10 +68,10 @@ export default function LoginPage() {
               transition={{ delay: 0.3 }}
             >
               <CardTitle className="text-3xl font-display font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                Welcome to ChargeSense
+                Welcome to Zeon
               </CardTitle>
               <CardDescription className="text-muted-foreground mt-2">
-                Smart EV Log Analysis Platform
+                Charging Analyser — Smart EV Log Analysis Platform
               </CardDescription>
             </motion.div>
           </CardHeader>
@@ -138,8 +138,8 @@ export default function LoginPage() {
         >
           <p>
             Need help? Contact us at{" "}
-            <a href="mailto:support@chargesense.io" className="text-primary hover:text-primary/80 transition-colors">
-              support@chargesense.io
+            <a href="mailto:support@zeoncharging.com" className="text-primary hover:text-primary/80 transition-colors">
+              support@zeoncharging.com
             </a>
           </p>
         </motion.div>

@@ -16,13 +16,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Upload, BarChart3, GitCompare, MessageCircle, Zap, Home, LogOut, Download } from "lucide-react";
+import logoWhite from "@/assets/logo_white.png";
 
 const navItems = [
   { title: "Home", url: "/", icon: Home },
   { title: "Upload Logs", url: "/upload", icon: Upload },
   { title: "Normalization", url: "/normalization", icon: GitCompare },
   { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
-  { title: "Ask ChargeSense", url: "/chat", icon: MessageCircle },
+  { title: "Ask Zeon AI", url: "/chat", icon: MessageCircle },
 ];
 
 export function AppSidebar() {
@@ -43,12 +44,10 @@ export function AppSidebar() {
   return (
     <Sidebar className="w-60 border-r border-sidebar-border">
       <div className="p-5 flex items-center gap-2.5">
-        <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
-          <Zap className="w-5 h-5 text-primary" />
-        </div>
+        <img src={logoWhite} alt="Zeon Charging" className="w-9 h-9 object-contain" />
         <div>
-          <h1 className="text-sm font-bold text-sidebar-primary">ChargeSense</h1>
-          <p className="text-[10px] text-sidebar-foreground/60 tracking-wider uppercase">EV Log Analysis</p>
+          <h1 className="text-sm font-bold text-sidebar-primary">Zeon Charging</h1>
+          <p className="text-[10px] text-sidebar-foreground/60 tracking-wider uppercase">Analyser</p>
         </div>
       </div>
 

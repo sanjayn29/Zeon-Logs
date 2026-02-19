@@ -25,7 +25,7 @@ const features = [
   },
   {
     icon: <MessageCircle className="w-6 h-6" />,
-    title: "Ask ChargeSense",
+    title: "Ask Zeon AI",
     desc: "Natural-language Q&A about your charger performance and errors.",
     route: "/chat",
   },
@@ -52,7 +52,7 @@ export default function HomePage() {
             <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center backdrop-blur-sm">
               <Zap className="w-5 h-5 text-primary" />
             </div>
-            <span className="text-xs font-semibold text-primary uppercase tracking-widest">ChargeSense</span>
+            <span className="text-xs font-semibold text-primary uppercase tracking-widest">Zeon Charging</span>
           </div>
           <h1 className="text-3xl md:text-4xl font-bold text-primary-foreground leading-tight">
             Smart EV Log <br />

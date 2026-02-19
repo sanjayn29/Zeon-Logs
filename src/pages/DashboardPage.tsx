@@ -23,6 +23,26 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from "@/components/ui/chart";
+import {
+  Bar,
+  BarChart,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Pie,
+  PieChart,
+  Cell,
+  ResponsiveContainer,
+  Area,
+  AreaChart,
+} from "recharts";
 
 const BACKEND_API = "http://localhost:8000";
 
@@ -378,6 +398,236 @@ export default function DashboardPage() {
               icon={BarChart3}
               variant="warning"
             />
+          </div>
+
+          {/* Visual Analytics Section */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-foreground">Visual Analytics</h3>
+              <span className="text-xs px-2 py-1 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium">
+                Charts & Insights
+              </span>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              {/* Sessions Distribution Chart */}
+              <div className="glow-card rounded-xl bg-card p-6 border-2 border-blue-500/20">
+                <h4 className="text-md font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-blue-500" />
+                  Sessions Overview
+                </h4>
+                <ChartContainer
+                  config={{
+                    successful: {
+                      label: "Successful",
+                      color: "hsl(142, 76%, 36%)",
+                    },
+                    failed: {
+                      label: "Failed",
+                      color: "hsl(0, 84%, 60%)",
+                    },
+                    incomplete: {
+                      label: "Incomplete",
+                      color: "hsl(38, 92%, 50%)",
+                    },
+                  }}
+                  className="h-[300px]"
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={[
+                        {
+                          name: "Connector 1",
+                          successful: data[0]?.connector1_summary["Successful Sessions"] || 0,
+                          failed: data[0]?.connector1_summary["Failed Sessions"] || 0,
+                          incomplete: data[0]?.connector1_summary["Incomplete Sessions"] || 0,
+                        },
+                        {
+                          name: "Connector 2",
+                          successful: data[0]?.connector2_summary["Successful Sessions"] || 0,
+                          failed: data[0]?.connector2_summary["Failed Sessions"] || 0,
+                          incomplete: data[0]?.connector2_summary["Incomplete Sessions"] || 0,
+                        },
+                        {
+                          name: "Total",
+                          successful: successfulSessions,
+                          failed: failedSessions,
+                          incomplete: incompleteSessions,
+                        },
+                      ]}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="name" className="text-xs" />
+                      <YAxis className="text-xs" />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <ChartLegend content={<ChartLegendContent />} />
+                      <Bar dataKey="successful" fill="hsl(142, 76%, 36%)" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="failed" fill="hsl(0, 84%, 60%)" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="incomplete" fill="hsl(38, 92%, 50%)" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+              </div>
+
+              {/* Energy & Power Comparison */}
+              <div className="glow-card rounded-xl bg-card p-6 border-2 border-green-500/20">
+                <h4 className="text-md font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <Battery className="w-5 h-5 text-green-500" />
+                  Energy & Power Metrics
+                </h4>
+                <ChartContainer
+                  config={{
+                    energy: {
+                      label: "Energy (kWh)",
+                      color: "hsl(142, 76%, 36%)",
+                    },
+                    avgPower: {
+                      label: "Avg Power (kW)",
+                      color: "hsl(217, 91%, 60%)",
+                    },
+                    peakPower: {
+                      label: "Peak Power (kW)",
+                      color: "hsl(38, 92%, 50%)",
+                    },
+                  }}
+                  className="h-[300px]"
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={[
+                        {
+                          name: "Connector 1",
+                          energy: data[0]?.connector1_summary["Total Energy (kWh)"] || 0,
+                          avgPower: data[0]?.connector1_summary["Average Power (kW)"] || 0,
+                          peakPower: data[0]?.connector1_summary["Peak Power (kW)"] || 0,
+                        },
+                        {
+                          name: "Connector 2",
+                          energy: data[0]?.connector2_summary["Total Energy (kWh)"] || 0,
+                          avgPower: data[0]?.connector2_summary["Average Power (kW)"] || 0,
+                          peakPower: data[0]?.connector2_summary["Peak Power (kW)"] || 0,
+                        },
+                      ]}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="name" className="text-xs" />
+                      <YAxis className="text-xs" />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <ChartLegend content={<ChartLegendContent />} />
+                      <Bar dataKey="energy" fill="hsl(142, 76%, 36%)" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="avgPower" fill="hsl(217, 91%, 60%)" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="peakPower" fill="hsl(38, 92%, 50%)" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+              </div>
+
+              {/* Session Results Pie Chart */}
+              <div className="glow-card rounded-xl bg-card p-6 border-2 border-purple-500/20">
+                <h4 className="text-md font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-purple-500" />
+                  Session Results Distribution
+                </h4>
+                <ChartContainer
+                  config={{
+                    successful: {
+                      label: "Successful",
+                      color: "hsl(142, 76%, 36%)",
+                    },
+                    failed: {
+                      label: "Failed",
+                      color: "hsl(0, 84%, 60%)",
+                    },
+                    incomplete: {
+                      label: "Incomplete",
+                      color: "hsl(38, 92%, 50%)",
+                    },
+                    precharging: {
+                      label: "Pre-Charging Failures",
+                      color: "hsl(280, 76%, 56%)",
+                    },
+                  }}
+                  className="h-[300px]"
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { name: "Successful", value: successfulSessions, fill: "hsl(142, 76%, 36%)" },
+                          { name: "Failed", value: failedSessions, fill: "hsl(0, 84%, 60%)" },
+                          { name: "Incomplete", value: incompleteSessions, fill: "hsl(38, 92%, 50%)" },
+                          { name: "Pre-Charging", value: prechargingFailures, fill: "hsl(280, 76%, 56%)" },
+                        ].filter((item) => item.value > 0)}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={80}
+                        dataKey="value"
+                      >
+                        {[
+                          { name: "Successful", value: successfulSessions, fill: "hsl(142, 76%, 36%)" },
+                          { name: "Failed", value: failedSessions, fill: "hsl(0, 84%, 60%)" },
+                          { name: "Incomplete", value: incompleteSessions, fill: "hsl(38, 92%, 50%)" },
+                          { name: "Pre-Charging", value: prechargingFailures, fill: "hsl(280, 76%, 56%)" },
+                        ]
+                          .filter((item) => item.value > 0)
+                          .map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.fill} />
+                          ))}
+                      </Pie>
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+              </div>
+
+              {/* Duration Comparison */}
+              <div className="glow-card rounded-xl bg-card p-6 border-2 border-amber-500/20">
+                <h4 className="text-md font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-amber-500" />
+                  Duration & Session Metrics
+                </h4>
+                <ChartContainer
+                  config={{
+                    avgDuration: {
+                      label: "Avg Duration (min)",
+                      color: "hsl(38, 92%, 50%)",
+                    },
+                    totalSessions: {
+                      label: "Total Sessions",
+                      color: "hsl(217, 91%, 60%)",
+                    },
+                  }}
+                  className="h-[300px]"
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={[
+                        {
+                          name: "Connector 1",
+                          avgDuration: data[0]?.connector1_summary["Average Duration (minutes)"] || 0,
+                          totalSessions: data[0]?.connector1_summary["Total Sessions"] || 0,
+                        },
+                        {
+                          name: "Connector 2",
+                          avgDuration: data[0]?.connector2_summary["Average Duration (minutes)"] || 0,
+                          totalSessions: data[0]?.connector2_summary["Total Sessions"] || 0,
+                        },
+                      ]}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="name" className="text-xs" />
+                      <YAxis className="text-xs" />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <ChartLegend content={<ChartLegendContent />} />
+                      <Bar dataKey="avgDuration" fill="hsl(38, 92%, 50%)" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="totalSessions" fill="hsl(217, 91%, 60%)" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+              </div>
+            </div>
           </div>
 
           {/* Error Breakdown Section */}

@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { StatCard } from "@/components/StatCard";
-import { Zap, CheckCircle, XCircle, Plug, AlertTriangle, Battery, BarChart3 } from "lucide-react";
+import { Zap, CheckCircle, XCircle, Plug, AlertTriangle, Battery, BarChart3, Download } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
 import {
@@ -189,6 +189,37 @@ export default function DashboardPage() {
       // Close both dialogs
       setIsAlertOpen(false);
       setSelectedLog(null);
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!selectedLog) return;
+
+    try {
+      const response = await fetch(`${BACKEND_API}/download-pdf/${selectedLog.document_id}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to download PDF');
+      }
+
+      // Get the PDF blob
+      const blob = await response.blob();
+      
+      // Create a download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${selectedLog.filename.replace('.csv', '')}_report.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Cleanup
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      console.log("PDF downloaded successfully:", selectedLog.filename);
+    } catch (error) {
+      console.error("Error downloading PDF:", error);
     }
   };
 
@@ -1008,11 +1039,19 @@ export default function DashboardPage() {
                 )}
               </div>
               <DialogFooter>
-                <Button variant="destructive" onClick={handleDeleteClick}>
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete
-                </Button>
-                <Button variant="outline" onClick={handleCloseModal}>Close</Button>
+                <div className="flex gap-2 w-full justify-between">
+                  <Button variant="default" onClick={handleDownloadPDF} className="bg-blue-600 hover:bg-blue-700">
+                    <Download className="w-4 h-4 mr-2" />
+                    Download PDF
+                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="destructive" onClick={handleDeleteClick}>
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete
+                    </Button>
+                    <Button variant="outline" onClick={handleCloseModal}>Close</Button>
+                  </div>
+                </div>
               </DialogFooter>
             </>
           )}

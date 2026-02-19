@@ -9,6 +9,13 @@ from datetime import datetime, timedelta
 import firebase_admin
 from firebase_admin import credentials, firestore
 import os
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib import colors
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from fastapi.responses import StreamingResponse
 
 # =====================================================
 # FIREBASE INITIALIZATION
@@ -267,6 +274,172 @@ async def delete_log(document_id: str):
         
     except Exception as e:
         print(f"❌ Error deleting log: {e}")
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+
+# =====================================================
+# DOWNLOAD PDF REPORT
+# =====================================================
+@app.get("/download-pdf/{document_id}")
+async def download_pdf(document_id: str):
+    """Generate and download a PDF report for a specific log"""
+    
+    if db is None:
+        raise HTTPException(status_code=503, detail="Firebase not connected")
+    
+    try:
+        doc_ref = db.collection("datas").document(document_id)
+        doc = doc_ref.get()
+
+        if not doc.exists:
+            raise HTTPException(status_code=404, detail=f"Log with ID {document_id} not found")
+
+        data = doc.to_dict()
+        
+        # Generate PDF
+        buffer = io.BytesIO()
+        pdf = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5*inch, bottomMargin=0.5*inch)
+        
+        # Container for PDF elements
+        elements = []
+        styles = getSampleStyleSheet()
+        
+        # Custom styles
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            textColor=colors.HexColor('#1976D2'),
+            spaceAfter=30,
+            alignment=TA_CENTER
+        )
+        
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=16,
+            textColor=colors.HexColor('#1976D2'),
+            spaceAfter=12,
+            spaceBefore=12
+        )
+        
+        # Title
+        elements.append(Paragraph("OCPP Charging Session Report", title_style))
+        elements.append(Spacer(1, 12))
+        
+        # File Info
+        elements.append(Paragraph(f"<b>Filename:</b> {data.get('filename', 'N/A')}", styles['Normal']))
+        elements.append(Paragraph(f"<b>Upload Date:</b> {data.get('upload_time', 'N/A')}", styles['Normal']))
+        elements.append(Paragraph(f"<b>User:</b> {data.get('user_email', 'N/A')}", styles['Normal']))
+        elements.append(Spacer(1, 20))
+        
+        # Function to create connector summary
+        def create_connector_table(connector_name, summary):
+            elements.append(Paragraph(f"{connector_name} Summary", heading_style))
+            
+            # Session Statistics
+            session_data = [
+                ['Metric', 'Value'],
+                ['Total Sessions', str(summary.get('Total Sessions', 0))],
+                ['Successful Sessions', str(summary.get('Successful Sessions', 0))],
+                ['Failed Sessions', str(summary.get('Failed Sessions', 0))],
+                ['Incomplete Sessions', str(summary.get('Incomplete Sessions', 0))],
+                ['Pre-Charging Failures', str(summary.get('Precharging Failures', 0))],
+                ['Idle Time Errors', str(summary.get('Idle Time Error Count', 0))],
+            ]
+            
+            table = Table(session_data, colWidths=[3.5*inch, 2.5*inch])
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1976D2')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
+            ]))
+            elements.append(table)
+            elements.append(Spacer(1, 20))
+            
+            # Energy & Power Metrics
+            energy_data = [
+                ['Metric', 'Value'],
+                ['Total Energy', f"{summary.get('Total Energy (kWh)', 0):.2f} kWh"],
+                ['Average Energy per Session', f"{summary.get('Average Energy per Session (kWh)', 0):.2f} kWh"],
+                ['Average Duration', f"{summary.get('Average Duration (minutes)', 0):.1f} minutes"],
+                ['Average Power', f"{summary.get('Average Power (kW)', 0):.2f} kW"],
+                ['Peak Power', f"{summary.get('Peak Power (kW)', 0):.2f} kW"],
+            ]
+            
+            table = Table(energy_data, colWidths=[3.5*inch, 2.5*inch])
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4CAF50')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.lightgreen),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
+            ]))
+            elements.append(table)
+            elements.append(Spacer(1, 20))
+            
+            # Failed Session Reasons
+            failed_reasons = summary.get('Failed Session Reasons', {})
+            if failed_reasons:
+                elements.append(Paragraph("Failed Session Reasons:", heading_style))
+                reasons_data = [['Error', 'Count']]
+                for error, count in failed_reasons.items():
+                    reasons_data.append([error, str(count)])
+                
+                table = Table(reasons_data, colWidths=[4*inch, 2*inch])
+                table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F44336')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 12),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.lightpink),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ]))
+                elements.append(table)
+                elements.append(Spacer(1, 20))
+        
+        # Create tables for both connectors
+        connector1_summary = data.get('connector1_summary', {})
+        connector2_summary = data.get('connector2_summary', {})
+        
+        # Handle if they're stored as JSON strings
+        if isinstance(connector1_summary, str):
+            connector1_summary = json.loads(connector1_summary)
+        if isinstance(connector2_summary, str):
+            connector2_summary = json.loads(connector2_summary)
+        
+        create_connector_table("Connector 1", connector1_summary)
+        elements.append(PageBreak())
+        create_connector_table("Connector 2", connector2_summary)
+        
+        # Build PDF
+        pdf.build(elements)
+        buffer.seek(0)
+        
+        # Return as downloadable file
+        filename = data.get('filename', 'report').replace('.csv', '')
+        return StreamingResponse(
+            buffer,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}_report.pdf"
+            }
+        )
+        
+    except Exception as e:
+        print(f"❌ Error generating PDF: {e}")
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 

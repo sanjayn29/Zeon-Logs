@@ -1,58 +1,139 @@
-# Zeon Logs
+# ⚡ Zeon Logs – OCPP EV Charger Log Analytics Platform
 
-A modern log analysis and management system built with React and TypeScript.
+**Zeon Logs** is a modern web application designed to analyze and manage **OCPP (Open Charge Point Protocol)** charger log files. It transforms raw EV charging logs into meaningful insights, helping operators and developers understand charger behavior, session performance, and energy usage.
 
-## Features
+---
 
-- **Upload**: Import and process log files
-- **Normalization**: Standardize log data formats
-- **Dashboard**: Visualize log analytics and metrics
-- **Chat**: Interactive log analysis interface
+## 🚀 Project Overview
 
-## Getting Started
+Electric Vehicle charging stations generate large volumes of event-based logs that are difficult to interpret manually.  
+Zeon Logs automates this process by:
 
-### Prerequisites
+- Normalizing raw OCPP log data  
+- Reconstructing charging sessions  
+- Computing detailed analytics  
+- Presenting both per-file and cumulative insights through a clean dashboard  
 
-- Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+---
 
-### Installation
+## 🧩 Core Functionality
 
-```sh
-# Install dependencies
-npm install
+### 📂 Log File Upload
+- Upload **CSV / Excel** files containing OCPP charger logs
+- Supports logs with multiple connectors
+- Files are processed directly in the backend (no raw file storage)
 
-# Start the development server
-npm run dev
-```
+### 🔄 Data Normalization
+- Standardizes vendor-specific OCPP log formats
+- Extracts structured data from nested JSON payloads
+- Converts raw events into session-level records
 
-The application will be available at `http://localhost:8080`
+### 📊 Analytics Dashboard
+- Displays **cumulative metrics** across all user uploads
+- Tracks charging behavior over time
+- Highlights charger performance and reliability
 
-### Available Scripts
+### 🧠 Interactive Chat
+- Ask questions about charger behavior and sessions
+- Conversational querying over analyzed log data
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-- `npm run lint` - Run ESLint
-- `npm test` - Run tests
-- `npm run test:watch` - Run tests in watch mode
+### 🔐 User Authentication
+- Firebase-based Google authentication
+- Each user’s uploads and analytics are isolated
 
-## Technologies Used
+---
 
-- **Vite** - Build tool and dev server
-- **React** - UI framework
-- **TypeScript** - Type safety
-- **shadcn/ui** - UI component library
-- **Tailwind CSS** - Styling
-- **React Router** - Routing
-- **TanStack Query** - Data fetching
+## 🧮 Key Features
 
-## Project Structure
+### 🔌 Session Analysis
+- Detects charging sessions using OCPP events
+- Classifies sessions as:
+  - **Successful**
+  - **Failed**
+  - **Incomplete**
 
-```
-src/
-├── components/     # Reusable components
-├── pages/          # Page components
-├── hooks/          # Custom React hooks
-├── lib/            # Utility functions
-└── integrations/   # External service integrations
-```
+### ⚡ Energy & Power Metrics
+- Total Energy Consumption (kWh)
+- Average Charging Duration
+- Average Charging Power
+- Peak Power Observed
+
+### 📁 Per-File & Cumulative Views
+- **Normalization Page**  
+  Shows analytics for the most recently uploaded file(s)
+- **Dashboard Page**  
+  Displays cumulative statistics across all user uploads
+
+### 🔌 Multi-Connector Support
+- Separately analyzes Connector 1 and Connector 2
+- Aggregates connector-wise and overall metrics
+
+### 👤 User-Specific Data
+- Each user’s uploaded logs are tracked independently
+- Secure access to personal analytics history
+
+---
+
+## 🏗️ Architecture
+
+Zeon Logs follows a **client-server architecture**:
+
+
+### Backend Responsibilities
+- Parse OCPP events (`StartTransaction`, `StopTransaction`, `MeterValues`)
+- Reconstruct charging sessions
+- Compute analytics per connector
+- Store processed results in Firestore
+
+### Frontend Responsibilities
+- File upload and user authentication
+- Display normalization and dashboard views
+- Aggregate metrics across uploads
+- Provide interactive chat interface
+
+---
+
+## 🛠️ Technology Stack
+
+### Frontend
+- **React 18 + TypeScript**
+- **Vite** (build tool)
+- **Tailwind CSS** + **shadcn/ui**
+- **TanStack Query** (data fetching)
+- **React Router**
+- **Firebase Authentication**
+
+### Backend
+- **Python FastAPI**
+- **Firebase Firestore** (database)
+- **Pandas** (data processing)
+- **ReportLab** (PDF generation)
+
+---
+
+## 📌 Use Cases
+
+- EV charging station monitoring
+- Charger performance analysis
+- Failure detection and diagnostics
+- Energy usage tracking
+- Operational reporting for EV infrastructure
+
+---
+
+## 👨‍💻 Author
+
+**Sanjay N**
+
+🌐 Portfolio: [www.sanjayn.me](https://www.sanjayn.me)
+
+---
+
+## 📄 License
+
+This project is developed for academic and hackathon purposes.  
+Feel free to explore, learn, and extend it.
+
+---
+
+⚡ *Zeon Logs – Turning raw EV charger logs into actionable insights.*

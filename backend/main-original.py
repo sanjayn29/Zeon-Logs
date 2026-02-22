@@ -20,7 +20,7 @@ CP_COLLECTION_NAME = os.getenv("CP_COLLECTION_NAME", "cp_details")
 
 # Initialize MongoDB client
 try:
-    print(f"🔌 Connecting to MongoDB at: {MONGO_URI}")
+    print(f"� Connecting to MongoDB at: {MONGO_URI}")
     mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
     # Test connection
     mongo_client.admin.command('ping')
@@ -388,11 +388,10 @@ def build_summary(df, idle_errors=None):
    else:
        power_kw = pd.Series(dtype=float)
 
-   # Calculate total energy delivered (FIX: Use session-level values, not max values)
+   # Calculate total energy delivered
    total_energy = 0
    if 'session_energy_delivered_kwh' in df.columns:
-       # Sum all session energies (not max, because we want total across all sessions)
-       total_energy = pd.to_numeric(df['session_energy_delivered_kwh'], errors='coerce').fillna(0).sum()
+       total_energy = pd.to_numeric(df['session_energy_delivered_kwh'], errors='coerce').sum()
 
    # Calculate average session duration
    avg_duration = 0
@@ -1046,7 +1045,6 @@ def final_process(df):
        - Determines actual start mode from StartTransactionRequest idTag
        - FIX: Preserves transactionId from session data - searches BOTH forward and backward
        - NEW: Stores errors with timestamps
-       - FIX: Validates energy calculations with transactionId matching
        """
        
        # Check if DataFrame is empty
@@ -1124,12 +1122,14 @@ def final_process(df):
                if not start_tx_rows.empty:
                    session_transaction_id = str(start_tx_rows['transactionId'].iloc[0])
                    session_info["Session_TransactionId"] = session_transaction_id
+                   # print(f"  🔍 Session {i+1}: TransactionId = {session_transaction_id}")
                else:
                    # Fallback: any transactionId in the session range
                    tids = search_df['transactionId'].dropna()
                    if not tids.empty:
                        session_transaction_id = str(tids.iloc[0])
                        session_info["Session_TransactionId"] = session_transaction_id
+                       # print(f"  🔍 Session {i+1}: TransactionId = {session_transaction_id} (fallback)")
            
            # ============================================================
            # Priority 1: Look for meterStop with matching transactionId
@@ -1149,6 +1149,17 @@ def final_process(df):
                if not meter_stop_matches.empty:
                    primary_stop_idx = meter_stop_matches.index[0]
                    session_info["Stop_Type"] = "meterStop"
+                   # print(f"  ✅ Session {i+1}: PRIORITY 1 - Found meterStop with matching transactionId at index {primary_stop_idx}")
+                   # print(f"     (This takes precedence over any Finishing/Available/Faulted status)")
+               else:
+                   # No match found - will proceed to Priority 2
+                   pass
+                   # print(f"  ⚠️ Session {i+1}: PRIORITY 1 - No meterStop with matching transactionId found")
+                   # print(f"     Proceeding to Priority 2 (status transitions)...")
+           else:
+               # No transactionId available - skip Priority 1, go to Priority 2
+               pass
+               # print(f"  ⚠️ Session {i+1}: PRIORITY 1 - No transactionId available, skipping to Priority 2...")
            
            # ============================================================
            # Priority 2: Look for status changes (Available, Faulted, Finishing)
@@ -1163,6 +1174,7 @@ def final_process(df):
                    primary_stop_idx = status_stop_idx[0]
                    stop_status = sf_reset.loc[primary_stop_idx, 'status']
                    session_info["Stop_Type"] = stop_status
+                   # print(f"  ✅ Session {i+1}: PRIORITY 2 - Found {stop_status} at index {primary_stop_idx}")
            
            # Priority 3: Incomplete or No Clear Stop
            if primary_stop_idx is None:
@@ -1173,10 +1185,12 @@ def final_process(df):
                if last_status == "Charging":
                    session_info["Stop_Type"] = "Incomplete"
                    primary_stop_idx = last_idx
+                   # print(f"  ⚠️ Session {i+1}: Incomplete (still Charging)")
                else:
                    # Use last event before next session
                    primary_stop_idx = search_end - 1
                    session_info["Stop_Type"] = "No_Clear_Stop"
+                   # print(f"  ⚠️ Session {i+1}: No clear stop, using last event at {primary_stop_idx}")
            
            session_info["Session_Stop"] = primary_stop_idx
            
@@ -1199,6 +1213,15 @@ def final_process(df):
                    if len(window_events) > 0:
                        error_window_end_idx = window_events.index[-1]
                        session_info["Error_Window_End"] = error_window_end_idx
+                       
+                       # Check if we captured additional errors
+                       error_count = window_events[
+                           (window_events['errorCode'].notna()) | 
+                           (window_events['vendorErrorCode'].notna())
+                       ].shape[0]
+                       
+                       # if error_count > 0:
+                           # print(f"    📊 Captured {error_count} errors in 2-min window (ends at {error_window_end_idx})")
                    else:
                        session_info["Error_Window_End"] = primary_stop_idx
                else:
@@ -1256,26 +1279,29 @@ def final_process(df):
            stop = int(xf.loc[i, "Session_Stop"])
            error_window_end = int(xf.loc[i, "Error_Window_End"]) if pd.notna(xf.loc[i, "Error_Window_End"]) else stop
 
+           # print(f"\n{'='*60}")
+           # print(f"Processing Session {i+1}")
+           # print(f"  Start Index: {start}")
+           # print(f"  Stop Index: {stop}")
+           # print(f"  Error Window End: {error_window_end}")
+           # print(f"{'='*60}")
+
            # Main session data (start to primary stop)
            # NOTE: stop + 1 ensures the stop event itself is INCLUDED
            # This captures reason, StopReason, and other fields from meterStop/Finishing/etc.
-           session_df = sf_reset.iloc[start:stop + 1].copy()
+           session_df = sf_reset.iloc[start:stop + 1]
            
            # Error window data (primary stop to error window end)
            # NOTE: Starts from stop (not stop+1) to include the stop event in error window
-           error_window_df = sf_reset.iloc[stop:error_window_end + 1].copy()
+           error_window_df = sf_reset.iloc[stop:error_window_end + 1]
            
            # FULL SESSION DATA (for metrics calculation)
            # NOTE: Includes everything from session start through error window
-           # FIX: Validate we're not extending into next session
-           full_session_end = error_window_end + 1
-           if i + 1 < len(starts):
-               # Ensure we don't go past the start of next session
-               full_session_end = min(full_session_end, starts[i + 1])
-           full_session_df = sf_reset.iloc[start:full_session_end].copy()
+           full_session_df = sf_reset.iloc[start:error_window_end + 1]
 
            # Skip if session_df is empty
            if session_df.empty:
+               # print(f"  ⚠️ Session {i+1} is empty, skipping...")
                continue
 
            # Extract session start and end times
@@ -1350,6 +1376,8 @@ def final_process(df):
            already_assigned_tids = set()
            if i > 0:
                already_assigned_tids = set(xf.loc[:i-1, 'transactionId'].dropna().astype(str))
+               # if already_assigned_tids:
+               #    print(f"     ⚠️ Excluding {len(already_assigned_tids)} transactionIds from previous sessions: {already_assigned_tids}")
            
            # Calculate BACKWARD search boundary (limited to avoid picking old sessions)
            # Only go back maximum 200 rows (increased from 100) or to previous session
@@ -1364,6 +1392,11 @@ def final_process(df):
            else:
                forward_search_end = len(sf_reset)
            
+           # print(f"\n  🔍 Searching for transactionId:")
+           # print(f"     Session Connector ID: {session_connector_id}")
+           # print(f"     Backward search: {backward_search_start} to {start} (max 200 rows back)")
+           # print(f"     Forward search: {start} to {forward_search_end}")
+           
            transaction_id_found = None
            
            if "transactionId" in sf_reset.columns:
@@ -1372,6 +1405,14 @@ def final_process(df):
                # Look for StartTransactionResponse or any row with transactionId
                # ============================================
                forward_range = sf_reset.iloc[start:forward_search_end]
+               
+               # DEBUG: Show what we're searching
+               # print(f"     DEBUG: Forward range has {len(forward_range)} rows (indices {start} to {forward_search_end-1})")
+               # if 'transactionId' in forward_range.columns:
+               #    tids_in_range = forward_range['transactionId'].dropna()
+               #    print(f"     DEBUG: Found {len(tids_in_range)} non-null transactionIds in forward range")
+               #    if not tids_in_range.empty:
+               #        print(f"     DEBUG: TransactionIds in range: {tids_in_range.tolist()}")
                
                # First try: Look for StartTransactionRequest with matching connector
                if 'command' in forward_range.columns:
@@ -1395,8 +1436,10 @@ def final_process(df):
                        
                        if not start_tx_requests.empty:
                            transaction_id_found = start_tx_requests['transactionId'].iloc[0]
+                           # print(f"     ✅ Found in FORWARD StartTransactionRequest: {transaction_id_found}")
                
                # Second try: Look for StartTransactionResponse
+               # NOTE: StartTransactionResponse often doesn't have connectorId, so we don't filter by it
                if not transaction_id_found and 'command' in forward_range.columns:
                    start_tx_responses = forward_range[
                        (forward_range['command'] == 'StartTransactionResponse') &
@@ -1411,6 +1454,7 @@ def final_process(df):
                    
                    if not start_tx_responses.empty:
                        transaction_id_found = start_tx_responses['transactionId'].iloc[0]
+                       # print(f"     ✅ Found in FORWARD StartTransactionResponse: {transaction_id_found}")
                
                # Third try: Look for StopTransactionRequest (reliable source)
                if not transaction_id_found and 'command' in forward_range.columns:
@@ -1427,6 +1471,7 @@ def final_process(df):
                    
                    if not stop_tx_requests.empty:
                        transaction_id_found = stop_tx_requests['transactionId'].iloc[0]
+                       # print(f"     ✅ Found in FORWARD StopTransactionRequest: {transaction_id_found}")
                
                # Fourth try: Any row with transactionId in forward range
                if not transaction_id_found:
@@ -1438,6 +1483,7 @@ def final_process(df):
                    
                    if not forward_tids.empty:
                        transaction_id_found = forward_tids.iloc[0]
+                       # print(f"     ✅ Found in FORWARD range (any row): {transaction_id_found}")
                
                # ============================================
                # PRIORITY 2: BACKWARD SEARCH (S3 reversed data pattern)
@@ -1469,9 +1515,11 @@ def final_process(df):
                            if not matching_responses.empty:
                                # Take the LAST one (closest to session start)
                                transaction_id_found = matching_responses['transactionId'].iloc[-1]
+                               # print(f"     ✅ Found in BACKWARD StartTransactionResponse (connector match): {transaction_id_found}")
                            elif not start_tx_responses.empty:
                                # No connector match, take the last one anyway
                                transaction_id_found = start_tx_responses['transactionId'].iloc[-1]
+                               # print(f"     ⚠️ Found in BACKWARD StartTransactionResponse (no connector filter): {transaction_id_found}")
                    
                    # Second try: Look for StartTransactionRequest in backward range
                    if not transaction_id_found and 'command' in backward_range.columns:
@@ -1494,8 +1542,10 @@ def final_process(df):
                            
                            if not matching_requests.empty:
                                transaction_id_found = matching_requests['transactionId'].iloc[-1]
+                               # print(f"     ✅ Found in BACKWARD StartTransactionRequest (connector match): {transaction_id_found}")
                    
                    # Third try: Filter backward search by avoiding old completed transactions
+                   # Look for MeterValues or StopTransaction to identify transaction boundaries
                    if not transaction_id_found:
                        # Get all transactionIds in backward range
                        backward_tids = backward_range['transactionId'].dropna()
@@ -1519,12 +1569,18 @@ def final_process(df):
                                if stop_tx.empty:
                                    # Transaction not stopped yet, probably belongs to this session
                                    transaction_id_found = candidate_tid
+                                   # print(f"     ✅ Found in BACKWARD range (unclosed transaction): {transaction_id_found}")
+                               else:
+                                   pass
+                                   # print(f"     ⚠️ Found transactionId {candidate_tid} but it was already stopped - skipping")
                
                # ============================================
                # PRIORITY 3: EXPANDED SEARCH (for edge cases)
                # If still not found and session is charging, expand search significantly
                # ============================================
                if not transaction_id_found and xf.loc[i, "is_Charging"] == 1:
+                   # print(f"     ⚠️ Charging session without transactionId - expanding search range...")
+                   
                    # Expand backward search to cover more ground (up to 500 rows or start of file)
                    expanded_backward_start = max(0, start - 500)
                    expanded_backward_range = sf_reset.iloc[expanded_backward_start:start]
@@ -1549,9 +1605,16 @@ def final_process(df):
                        if not connector_match.empty:
                            # Take the last one (closest to session)
                            transaction_id_found = connector_match['transactionId'].iloc[-1]
+                           # print(f"     ✅ Found in EXPANDED BACKWARD search (connector {session_connector_id}): {transaction_id_found}")
                
                if transaction_id_found:
                    xf.loc[i, "transactionId"] = transaction_id_found
+               else:
+                   pass
+                   # print(f"     ❌ No valid transactionId found for this session")
+           else:
+               pass
+               # print(f"     ❌ transactionId column not found in DataFrame")
 
            # ========================================
            # NEW: CAPTURE ALL ERRORS WITH TIMESTAMPS (ROW-BY-ROW)
@@ -1611,90 +1674,50 @@ def final_process(df):
            xf.at[i, "all_errors"] = all_errors if all_errors else None
 
            # ========================================
-           # FIX: CALCULATE ENERGY DELIVERED (with transactionId validation)
+           # NEW: CALCULATE ENERGY DELIVERED
            # ========================================
+           # Look for meterStart and meterStop first
            meter_start = None
            meter_stop = None
-           session_transaction_id = xf.loc[i, "transactionId"]
            
-           # Filter by transactionId to ensure we're using values from THIS session only
-           if pd.notna(session_transaction_id) and "transactionId" in session_df.columns:
-               # Get meterStart from session_df filtered by transactionId
-               if "meterStart" in session_df.columns:
-                   tx_filtered = session_df[session_df["transactionId"].astype(str) == str(session_transaction_id)]
-                   ms = pd.to_numeric(tx_filtered["meterStart"], errors="coerce").dropna()
-                   if not ms.empty:
-                       meter_start = ms.iloc[0]
-               
-               # Get meterStop from full_session_df filtered by transactionId
-               if "meterStop" in full_session_df.columns:
-                   tx_filtered = full_session_df[full_session_df["transactionId"].astype(str) == str(session_transaction_id)]
-                   ms = pd.to_numeric(tx_filtered["meterStop"], errors="coerce").dropna()
-                   if not ms.empty:
-                       meter_stop = ms.iloc[-1]
-               
-               # Fallback: Use Energy.Active.Import.Register if no meterStop (filtered by transactionId)
-               if meter_stop is None and "Energy.Active.Import.Register" in full_session_df.columns:
-                   tx_filtered = full_session_df[full_session_df["transactionId"].astype(str) == str(session_transaction_id)]
-                   energy_vals = pd.to_numeric(tx_filtered["Energy.Active.Import.Register"], errors="coerce").dropna()
-                   if not energy_vals.empty:
-                       meter_stop = energy_vals.iloc[-1]
-           else:
-               # Fallback: No transactionId available, use original logic but with warning
-               if "meterStart" in session_df.columns:
-                   ms = pd.to_numeric(session_df["meterStart"], errors="coerce").dropna()
-                   if not ms.empty:
-                       meter_start = ms.iloc[0]
-               
-               if "meterStop" in full_session_df.columns:
-                   ms = pd.to_numeric(full_session_df["meterStop"], errors="coerce").dropna()
-                   if not ms.empty:
-                       meter_stop = ms.iloc[-1]
-               
-               if meter_stop is None and "Energy.Active.Import.Register" in full_session_df.columns:
-                   energy_vals = pd.to_numeric(full_session_df["Energy.Active.Import.Register"], errors="coerce").dropna()
-                   if not energy_vals.empty:
-                       meter_stop = energy_vals.iloc[-1]
+           if "meterStart" in session_df.columns:
+               ms = pd.to_numeric(session_df["meterStart"], errors="coerce").dropna()
+               if not ms.empty:
+                   meter_start = ms.iloc[0]
            
-           # Calculate and VALIDATE energy delivered
+           if "meterStop" in full_session_df.columns:
+               # Look for meterStop in full session
+               ms = pd.to_numeric(full_session_df["meterStop"], errors="coerce").dropna()
+               if not ms.empty:
+                   meter_stop = ms.iloc[-1]  # Take last meterStop
+           
+           # If no meterStop, use last Energy.Active.Import.Register value
+           if meter_stop is None and "Energy.Active.Import.Register" in full_session_df.columns:
+               energy_vals = pd.to_numeric(
+                   full_session_df["Energy.Active.Import.Register"], 
+                   errors="coerce"
+               ).dropna()
+               if not energy_vals.empty:
+                   meter_stop = energy_vals.iloc[-1]
+           
+           # Calculate energy delivered
            if meter_start is not None and meter_stop is not None:
-               # Validation: meter_stop should be >= meter_start
-               if meter_stop >= meter_start:
-                   energy_wh = meter_stop - meter_start
-                   energy_kwh = energy_wh / 1000  # Convert Wh to kWh
-                   
-                   # Additional validation: reasonable energy range (0 to 500 kWh per session)
-                   if 0 <= energy_kwh <= 500:
-                       xf.loc[i, "session_energy_delivered_kwh"] = round(energy_kwh, 3)
-                   else:
-                       # Energy value seems unreasonable, log warning and set to 0
-                       print(f"  ⚠️ Session {i+1}: Unreasonable energy value: {energy_kwh:.3f} kWh (meter_start={meter_start}, meter_stop={meter_stop}) - Setting to 0")
-                       xf.loc[i, "session_energy_delivered_kwh"] = 0
-               else:
-                   # meter_stop < meter_start indicates meter rollover or wrong values
-                   print(f"  ⚠️ Session {i+1}: meter_stop ({meter_stop}) < meter_start ({meter_start}) - possible meter rollover or wrong transaction - Setting energy to 0")
-                   xf.loc[i, "session_energy_delivered_kwh"] = 0
+               energy_wh = meter_stop - meter_start
+               energy_kwh = energy_wh / 1000  # Convert Wh to kWh
+               xf.loc[i, "session_energy_delivered_kwh"] = round(energy_kwh, 3)
 
            # ========================================
-           # FIX: CALCULATE PEAK POWER IN SESSION (with transactionId validation)
+           # NEW: CALCULATE PEAK POWER IN SESSION
            # ========================================
            if "Power.Active.Import" in full_session_df.columns:
-               # Filter by transactionId if available
-               power_df = full_session_df
-               if pd.notna(session_transaction_id) and "transactionId" in full_session_df.columns:
-                   power_df = full_session_df[full_session_df["transactionId"].astype(str) == str(session_transaction_id)]
-               
-               power_vals = pd.to_numeric(power_df["Power.Active.Import"], errors="coerce").dropna()
+               power_vals = pd.to_numeric(
+                   full_session_df["Power.Active.Import"], 
+                   errors="coerce"
+               ).dropna()
                if not power_vals.empty:
                    peak_power_w = power_vals.max()
                    peak_power_kw = peak_power_w / 1000
-                   
-                   # Validate reasonable power range (0 to 500 kW)
-                   if 0 <= peak_power_kw <= 500:
-                       xf.loc[i, "session_peak_power_kw"] = round(peak_power_kw, 2)
-                   else:
-                       print(f"  ⚠️ Session {i+1}: Unreasonable peak power: {peak_power_kw:.2f} kW - Setting to 0")
-                       xf.loc[i, "session_peak_power_kw"] = 0
+                   xf.loc[i, "session_peak_power_kw"] = round(peak_power_kw, 2)
 
            # Single-value fields - KEEP ORIGINAL LOGIC for backward compatibility
            # But prioritize error window data
@@ -1777,6 +1800,38 @@ def final_process(df):
            on="transactionId",
            how="left"
        )
+
+       # ========================================
+       # FINAL VERIFICATION: Check for null transactionIds
+       # ========================================
+       # print(f"\n{'='*60}")
+       # print(f"FINAL VERIFICATION: transactionId Status")
+       # print(f"{'='*60}")
+       
+       # null_tid_count = final_df["transactionId"].isna().sum()
+       # total_sessions = len(final_df)
+       
+       # print(f"Total sessions: {total_sessions}")
+       # print(f"Sessions with null transactionId: {null_tid_count}")
+       # print(f"Sessions with valid transactionId: {total_sessions - null_tid_count}")
+       
+       # if null_tid_count > 0:
+       #    print(f"\n⚠️ WARNING: {null_tid_count} session(s) have null transactionId")
+       #    print(f"This usually means:")
+       #    print(f"  1. The session never reached StartTransaction phase")
+       #    print(f"  2. The transactionId appears outside the session boundary")
+       #    print(f"  3. The OCPP log is missing transactionId data")
+           
+       #    # Show which sessions have null transactionId
+       #    null_sessions = final_df[final_df["transactionId"].isna()]
+       #    for idx, row in null_sessions.iterrows():
+       #        print(f"\n  Session {idx + 1} (NULL transactionId):")
+       #        print(f"    Stop_Type: {row.get('Stop_Type', 'N/A')}")
+       #        print(f"    is_Charging: {row.get('is_Charging', 'N/A')}")
+       #        print(f"    Start: {row.get('session_start_time', 'N/A')}")
+       #        print(f"    End: {row.get('session_end_time', 'N/A')}")
+       
+       # print(f"{'='*60}\n")
 
        return final_df
    

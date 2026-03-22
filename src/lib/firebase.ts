@@ -5,12 +5,6 @@ import { getFirestore } from "firebase/firestore";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyC4TKe7vVGWBuXaJ5H6K3hErpcUzlgANy4",
-  authDomain: "zeon-cfc23.firebaseapp.com",
-  projectId: "zeon-cfc23",
-  storageBucket: "zeon-cfc23.firebasestorage.app",
-  messagingSenderId: "292217253039",
-  appId: "1:292217253039:web:0be8680a3089eda193f85a"
 };
 
 // Initialize Firebase

@@ -41,39 +41,6 @@ Zeon Logs automates this process by:
 - Firebase-based Google authentication
 - Each user’s uploads and analytics are isolated
 
----
-
-## 🧮 Key Features
-
-### 🔌 Session Analysis
-- Detects charging sessions using OCPP events
-- Classifies sessions as:
-  - **Successful**
-  - **Failed**
-  - **Incomplete**
-
-### ⚡ Energy & Power Metrics
-- Total Energy Consumption (kWh)
-- Average Charging Duration
-- Average Charging Power
-- Peak Power Observed
-
-### 📁 Per-File & Cumulative Views
-- **Normalization Page**  
-  Shows analytics for the most recently uploaded file(s)
-- **Dashboard Page**  
-  Displays cumulative statistics across all user uploads
-
-### 🔌 Multi-Connector Support
-- Separately analyzes Connector 1 and Connector 2
-- Aggregates connector-wise and overall metrics
-
-### 👤 User-Specific Data
-- Each user’s uploaded logs are tracked independently
-- Secure access to personal analytics history
-
----
-
 ## 🏗️ Architecture
 
 Zeon Logs follows a **client-server architecture**:
@@ -108,32 +75,20 @@ Zeon Logs follows a **client-server architecture**:
 - **Firebase Firestore** (database)
 - **Pandas** (data processing)
 - **ReportLab** (PDF generation)
-
 ---
 
-## 📌 Use Cases
-
-- EV charging station monitoring
-- Charger performance analysis
-- Failure detection and diagnostics
-- Energy usage tracking
-- Operational reporting for EV infrastructure
-
----
-
-## 👨‍💻 Author
+# 👨‍💻 Developer
 
 **Sanjay N**
 
-🌐 Portfolio: [www.sanjayn.me](https://www.sanjayn.me)
+🚀 Freelancer  
+
+🌐 Portfolio: https://sanjayn.me  
+💼 LinkedIn: https://linkedin.com/in/sanjayn29  
+🐙 GitHub: https://github.com/sanjayn29  
 
 ---
 
-## 📄 License
+# ⭐ Support
 
-This project is developed for academic and hackathon purposes.  
-Feel free to explore, learn, and extend it.
-
----
-
-⚡ *Zeon Logs – Turning raw EV charger logs into actionable insights.*
+If you like this project, consider giving it a **star ⭐ on GitHub** to support the development.
